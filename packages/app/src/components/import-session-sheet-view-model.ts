@@ -194,11 +194,6 @@ export interface ImportTarget {
    * rejects an import whose cwd does not match the requested workspace.
    */
   workspaceId?: string;
-  /**
-   * The agent lands in a workspace other than the one the sheet was opened from,
-   * so the caller has to open that workspace instead of adding a tab here.
-   */
-  crossWorkspace: boolean;
 }
 
 export function resolveImportTarget(input: {
@@ -210,7 +205,7 @@ export function resolveImportTarget(input: {
   isScopedListing: boolean;
 }): ImportTarget {
   if (!input.workspaceId || !input.workspaceCwd) {
-    return { crossWorkspace: true };
+    return {};
   }
   // A scoped listing only holds rows the daemon already matched to this
   // workspace's directory with realpaths resolved, which the client cannot do.
@@ -218,9 +213,22 @@ export function resolveImportTarget(input: {
   const belongsToWorkspace =
     input.isScopedListing ||
     withoutTrailingSlash(input.entryCwd) === withoutTrailingSlash(input.workspaceCwd);
-  return belongsToWorkspace
-    ? { workspaceId: input.workspaceId, crossWorkspace: false }
-    : { crossWorkspace: true };
+  return belongsToWorkspace ? { workspaceId: input.workspaceId } : {};
+}
+
+/**
+ * Where the agent actually landed. The request only asks: a session the daemon
+ * already owns comes back in its own workspace regardless of what was requested,
+ * so the sheet adds a tab here only when the result says the agent belongs here.
+ */
+export function landedInRequestedWorkspace(input: {
+  requestedWorkspaceId?: string;
+  agentWorkspaceId?: string;
+}): boolean {
+  return (
+    input.requestedWorkspaceId !== undefined &&
+    input.agentWorkspaceId === input.requestedWorkspaceId
+  );
 }
 
 export function getSessionTitle(entry: FetchRecentProviderSessionEntry): string {
