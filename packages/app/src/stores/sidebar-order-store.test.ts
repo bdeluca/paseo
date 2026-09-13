@@ -24,6 +24,7 @@ describe("migrateSidebarOrderState", () => {
       workspaceOrderByProject: {
         "project-a": ["host-a:main", "host-a:feature", "host-b:main"],
       },
+      projectCategories: [],
     });
   });
 
@@ -33,6 +34,35 @@ describe("migrateSidebarOrderState", () => {
     });
 
     expect(migrated.pinnedWorkspaceOrder).toEqual(["host-a:one", "host-b:two"]);
+  });
+
+  it("restores project categories and drops a project listed by two of them", () => {
+    const migrated = migrateSidebarOrderState({
+      projectOrder: ["project-a", "project-b"],
+      projectCategories: [
+        { id: "products", name: "Products", projectViewKeys: ["project-a"] },
+        { id: "infra", name: "Infrastructure", projectViewKeys: ["project-a", "project-b"] },
+      ],
+    });
+
+    expect(migrated.projectCategories).toEqual([
+      { id: "products", name: "Products", projectViewKeys: ["project-a"] },
+      { id: "infra", name: "Infrastructure", projectViewKeys: ["project-b"] },
+    ]);
+  });
+
+  it("keeps the orders a pre-categories settings blob carries", () => {
+    const migrated = migrateSidebarOrderState({
+      projectOrder: ["project-a"],
+      pinnedWorkspaceOrder: ["host-a:one"],
+    });
+
+    expect(migrated).toEqual({
+      projectOrder: ["project-a"],
+      pinnedWorkspaceOrder: ["host-a:one"],
+      workspaceOrderByProject: {},
+      projectCategories: [],
+    });
   });
 });
 

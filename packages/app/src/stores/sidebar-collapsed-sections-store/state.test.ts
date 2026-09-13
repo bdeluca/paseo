@@ -5,6 +5,7 @@ import {
   serializeCollapsedProjects,
   setProjectCollapsed,
   togglePinnedCollapsed,
+  toggleProjectCategoryCollapsed,
   toggleProjectCollapsed,
   toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
@@ -13,6 +14,7 @@ function emptyState(): CollapsedProjectsState {
   return {
     collapsedProjectKeys: new Set(),
     collapsedWorkspaceGroupKeys: new Set(),
+    collapsedProjectCategoryKeys: new Set(),
     collapsedPinned: false,
   };
 }
@@ -34,12 +36,14 @@ describe("sidebar collapsed projects transitions", () => {
     const state: CollapsedProjectsState = {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedWorkspaceGroupKeys: new Set(["running"]),
+      collapsedProjectCategoryKeys: new Set(["category_products"]),
       collapsedPinned: true,
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedWorkspaceGroupKeys: ["running"],
+      collapsedProjectCategoryKeys: ["category_products"],
       collapsedPinned: true,
     });
   });
@@ -50,6 +54,28 @@ describe("sidebar collapsed projects transitions", () => {
 
     const restored = mergePersistedCollapsedProjects({ collapsedPinned: true }, emptyState());
     expect(restored.collapsedPinned).toBe(true);
+  });
+
+  it("restores collapsed project categories independently from projects", () => {
+    const toggled = toggleProjectCategoryCollapsed(emptyState(), "category_products");
+    expect(Array.from(toggled.collapsedProjectCategoryKeys)).toEqual(["category_products"]);
+    expect(Array.from(toggled.collapsedProjectKeys)).toEqual([]);
+
+    const restored = mergePersistedCollapsedProjects(
+      { collapsedProjectCategoryKeys: ["category_products"] },
+      emptyState(),
+    );
+    expect(Array.from(restored.collapsedProjectCategoryKeys)).toEqual(["category_products"]);
+  });
+
+  it("leaves collapsed categories empty for a settings blob written before categories existed", () => {
+    const restored = mergePersistedCollapsedProjects(
+      { collapsedProjectKeys: ["project-a"], collapsedPinned: true },
+      emptyState(),
+    );
+
+    expect(Array.from(restored.collapsedProjectCategoryKeys)).toEqual([]);
+    expect(Array.from(restored.collapsedProjectKeys)).toEqual(["project-a"]);
   });
 
   it("rejects the complete value when a persisted project key is invalid", () => {

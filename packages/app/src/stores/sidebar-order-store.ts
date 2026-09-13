@@ -3,32 +3,59 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { z } from "zod";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
+import {
+  moveProjectToCategory,
+  normalizeProjectCategories,
+  removeProjectCategory,
+  renameProjectCategory,
+  reorderCategoryProjectViewKeys,
+  shiftProjectCategory,
+  type SidebarProjectCategory,
+} from "./sidebar-project-categories";
+
+export type { SidebarProjectCategory } from "./sidebar-project-categories";
 
 interface SidebarOrderStoreState {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
+  projectCategories: SidebarProjectCategory[];
   getProjectOrder: () => string[];
   setProjectOrder: (keys: string[]) => void;
   getPinnedWorkspaceOrder: () => string[];
   setPinnedWorkspaceOrder: (keys: string[]) => void;
   getWorkspaceOrder: (projectViewKey: string) => string[];
   setWorkspaceOrder: (projectViewKey: string, keys: string[]) => void;
+  createProjectCategory: (name: string) => string | null;
+  renameProjectCategory: (categoryId: string, name: string) => void;
+  shiftProjectCategory: (categoryId: string, direction: -1 | 1) => void;
+  setCategoryProjectOrder: (categoryId: string, projectViewKeys: string[]) => void;
+  deleteProjectCategory: (categoryId: string) => void;
+  moveProjectToCategory: (projectViewKey: string, categoryId: string | null) => void;
 }
 
 interface SidebarOrderPersistedState {
   projectOrder?: string[];
   pinnedWorkspaceOrder?: string[];
   workspaceOrderByProject?: Record<string, string[]>;
+  projectCategories?: SidebarProjectCategory[];
   projectOrderByServerId?: Record<string, string[]>;
   workspaceOrderByServerAndProject?: Record<string, string[]>;
 }
 
 const StringArrayRecordSchema = z.record(z.string(), z.array(z.string()));
+const SidebarProjectCategorySchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  projectViewKeys: z.array(z.string()),
+});
 const SidebarOrderPersistedStateSchema = z.strictObject({
   projectOrder: z.array(z.string()).optional(),
   pinnedWorkspaceOrder: z.array(z.string()).optional(),
   workspaceOrderByProject: StringArrayRecordSchema.optional(),
+  // Optional, because a settings blob written before categories existed has no such key and must
+  // still restore the orders it does carry.
+  projectCategories: z.array(SidebarProjectCategorySchema).optional(),
   projectOrderByServerId: StringArrayRecordSchema.optional(),
   workspaceOrderByServerAndProject: StringArrayRecordSchema.optional(),
 });
@@ -110,10 +137,16 @@ export function migrateSidebarOrderState(persistedState: unknown): {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
+  projectCategories: SidebarProjectCategory[];
 } {
   const result = SidebarOrderPersistedStateSchema.safeParse(persistedState);
   if (!result.success) {
-    return { projectOrder: [], pinnedWorkspaceOrder: [], workspaceOrderByProject: {} };
+    return {
+      projectOrder: [],
+      pinnedWorkspaceOrder: [],
+      workspaceOrderByProject: {},
+      projectCategories: [],
+    };
   }
   const state: SidebarOrderPersistedState = result.data;
 
@@ -147,7 +180,16 @@ export function migrateSidebarOrderState(persistedState: unknown): {
     projectOrder,
     pinnedWorkspaceOrder: normalizeKeys(state.pinnedWorkspaceOrder ?? []),
     workspaceOrderByProject,
+    projectCategories: normalizeProjectCategories(state.projectCategories ?? []),
   };
+}
+
+function createCategoryId(): string {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `category_${randomId}`;
 }
 
 export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
@@ -156,6 +198,7 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
       projectOrder: [],
       pinnedWorkspaceOrder: [],
       workspaceOrderByProject: {},
+      projectCategories: [],
       getProjectOrder: () => get().projectOrder,
       setProjectOrder: (keys) => {
         set({ projectOrder: dedupeKeys(keys) });
@@ -177,6 +220,64 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
           },
         }));
       },
+      // Returns the new id so the caller that created a category can move a project into it in
+      // the same gesture, which is how "New category" on a project row works.
+      createProjectCategory: (name) => {
+        const categoryName = name.trim();
+        if (!categoryName) return null;
+        const category: SidebarProjectCategory = {
+          id: createCategoryId(),
+          name: categoryName,
+          projectViewKeys: [],
+        };
+        set((state) => ({
+          projectCategories: normalizeProjectCategories([...state.projectCategories, category]),
+        }));
+        return category.id;
+      },
+      renameProjectCategory: (categoryId, name) => {
+        const categoryName = name.trim();
+        if (!categoryName || !categoryId.trim()) return;
+        set((state) => ({
+          projectCategories: normalizeProjectCategories(
+            renameProjectCategory(state.projectCategories, categoryId, categoryName),
+          ),
+        }));
+      },
+      shiftProjectCategory: (categoryId, direction) => {
+        if (!categoryId.trim()) return;
+        set((state) => ({
+          projectCategories: normalizeProjectCategories(
+            shiftProjectCategory(state.projectCategories, categoryId, direction),
+          ),
+        }));
+      },
+      setCategoryProjectOrder: (categoryId, projectViewKeys) => {
+        if (!categoryId.trim()) return;
+        const orderedKeys = normalizeKeys(projectViewKeys);
+        set((state) => ({
+          projectCategories: normalizeProjectCategories(
+            reorderCategoryProjectViewKeys(state.projectCategories, categoryId, orderedKeys),
+          ),
+        }));
+      },
+      deleteProjectCategory: (categoryId) => {
+        if (!categoryId.trim()) return;
+        set((state) => ({
+          projectCategories: normalizeProjectCategories(
+            removeProjectCategory(state.projectCategories, categoryId),
+          ),
+        }));
+      },
+      moveProjectToCategory: (projectViewKey, categoryId) => {
+        const scope = projectViewKey.trim();
+        if (!scope) return;
+        set((state) => ({
+          projectCategories: normalizeProjectCategories(
+            moveProjectToCategory(state.projectCategories, scope, categoryId?.trim() || null),
+          ),
+        }));
+      },
     }),
     {
       name: "sidebar-project-workspace-order",
@@ -185,6 +286,7 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         projectOrder: state.projectOrder,
         pinnedWorkspaceOrder: state.pinnedWorkspaceOrder,
         workspaceOrderByProject: state.workspaceOrderByProject,
+        projectCategories: state.projectCategories,
       }),
       version: 1,
       migrate: migrateSidebarOrderState,
