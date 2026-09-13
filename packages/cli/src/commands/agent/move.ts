@@ -1,28 +1,23 @@
 import type { Command } from "commander";
 import type { WorkspaceDescriptorPayload } from "@getpaseo/protocol/messages";
 import { connectToDaemon, resolveAgentId } from "../../utils/client.js";
-import type {
-  CommandError,
-  CommandOptions,
-  OutputSchema,
-  SingleResult,
-} from "../../output/index.js";
+import type { CommandError, CommandOptions, ListResult, OutputSchema } from "../../output/index.js";
 
-interface AgentMoveResult {
+/** One moved agent. Subagents carried with it are counted, not listed. */
+export interface AgentMoveResult {
   agentId: string;
-  workspaceId: string;
-  previousWorkspaceId: string | null;
-  /** The moved agent plus the descendants carried with it. */
-  movedAgents: number;
+  fromWorkspaceId: string | null;
+  toWorkspaceId: string;
+  subagentsMoved: number;
 }
 
-const moveSchema: OutputSchema<AgentMoveResult> = {
+export const moveSchema: OutputSchema<AgentMoveResult> = {
   idField: "agentId",
   columns: [
     { header: "AGENT ID", field: "agentId" },
-    { header: "WORKSPACE ID", field: "workspaceId" },
-    { header: "FROM", field: "previousWorkspaceId" },
-    { header: "MOVED", field: "movedAgents" },
+    { header: "FROM", field: "fromWorkspaceId" },
+    { header: "TO", field: "toWorkspaceId" },
+    { header: "SUBAGENTS", field: "subagentsMoved", align: "right" },
   ],
 };
 
@@ -30,14 +25,14 @@ export interface AgentMoveOptions extends CommandOptions {
   workspace?: string;
 }
 
-export function addMoveOptions(command: Command): Command {
-  return command
-    .description("Move an agent and its subagents to another workspace")
-    .argument("<id>", "Agent ID (or prefix)")
+export function addMoveOptions(cmd: Command): Command {
+  return cmd
+    .description("Move agents to another workspace")
+    .argument("<id...>", "Agent ID, prefix, or name")
     .requiredOption("--workspace <id>", "Target workspace ID or name");
 }
 
-export function resolveWorkspaceId(
+export function resolveWorkspace(
   query: string,
   workspaces: WorkspaceDescriptorPayload[],
 ): WorkspaceDescriptorPayload {
@@ -55,7 +50,7 @@ export function resolveWorkspaceId(
     throw {
       code: "AMBIGUOUS_WORKSPACE",
       message: `Workspace name matches ${byName.length} workspaces: ${query}`,
-      details: byName.map((workspace) => workspace.id).join(", "),
+      details: `Use one of these IDs: ${byName.map((workspace) => workspace.id).join(", ")}`,
     } satisfies CommandError;
   }
 
@@ -64,6 +59,33 @@ export function resolveWorkspaceId(
     message: `Workspace not found: ${query}`,
     details: 'Use "paseo workspace ls" to list workspaces',
   } satisfies CommandError;
+}
+
+interface AgentLike {
+  id: string;
+  title?: string | null;
+}
+
+/**
+ * Every ID is resolved before the first move so a typo in the last argument
+ * cannot leave the earlier agents moved and the rest behind.
+ */
+export function resolveMoveTargets(idArgs: string[], agents: AgentLike[]): string[] {
+  const resolved: string[] = [];
+  for (const idArg of idArgs) {
+    const agentId = resolveAgentId(idArg, agents);
+    if (!agentId) {
+      throw {
+        code: "AGENT_NOT_FOUND",
+        message: `Agent not found: ${idArg}`,
+        details: 'Use "paseo ls" to list available agents',
+      } satisfies CommandError;
+    }
+    if (!resolved.includes(agentId)) {
+      resolved.push(agentId);
+    }
+  }
+  return resolved;
 }
 
 async function listWorkspaces(
@@ -82,20 +104,21 @@ async function listWorkspaces(
 }
 
 export async function runMoveCommand(
-  agentIdArg: string,
+  idArgs: string[],
   options: AgentMoveOptions,
   _command: Command,
-): Promise<SingleResult<AgentMoveResult>> {
+): Promise<ListResult<AgentMoveResult>> {
   const workspaceQuery = options.workspace?.trim();
   if (!workspaceQuery) {
     throw {
       code: "MISSING_WORKSPACE",
       message: "Target workspace is required",
-      details: "Usage: paseo agent move <id> --workspace <id>",
+      details: "Usage: paseo agent move <id...> --workspace <id-or-name>",
     } satisfies CommandError;
   }
 
   const client = await connectToDaemon({ target: options.daemonTarget });
+  const moved: AgentMoveResult[] = [];
 
   try {
     // COMPAT(agentWorkspaceMove): added in v0.8.1, remove gate after 2027-03-13.
@@ -107,30 +130,35 @@ export async function runMoveCommand(
     }
 
     const payload = await client.fetchAgents({ filter: { includeArchived: true } });
-    const agentId = resolveAgentId(
-      agentIdArg,
+    const agentIds = resolveMoveTargets(
+      idArgs,
       payload.entries.map((entry) => entry.agent),
     );
-    if (!agentId) {
-      throw {
-        code: "AGENT_NOT_FOUND",
-        message: `Agent not found: ${agentIdArg}`,
-      } satisfies CommandError;
+    const workspace = resolveWorkspace(workspaceQuery, await listWorkspaces(client));
+
+    for (const agentId of agentIds) {
+      const result = await client.moveAgentToWorkspace(agentId, workspace.id);
+      moved.push({
+        agentId,
+        fromWorkspaceId: result.previousWorkspaceId,
+        toWorkspaceId: workspace.id,
+        subagentsMoved: Math.max(result.movedAgentIds.length - 1, 0),
+      });
     }
 
-    const workspace = resolveWorkspaceId(workspaceQuery, await listWorkspaces(client));
-    const result = await client.moveAgentToWorkspace(agentId, workspace.id);
-
-    return {
-      type: "single",
-      data: {
-        agentId,
-        workspaceId: workspace.id,
-        previousWorkspaceId: result.previousWorkspaceId,
-        movedAgents: result.movedAgentIds.length,
-      },
-      schema: moveSchema,
-    };
+    return { type: "list", data: moved, schema: moveSchema };
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    throw {
+      code: "MOVE_FAILED",
+      message: `Failed to move agent: ${message}`,
+      ...(moved.length > 0
+        ? { details: `Already moved: ${moved.map((entry) => entry.agentId).join(", ")}` }
+        : {}),
+    } satisfies CommandError;
   } finally {
     await client.close().catch(() => undefined);
   }
