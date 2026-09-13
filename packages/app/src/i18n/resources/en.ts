@@ -1203,6 +1203,33 @@ export const en = {
         description: "Add a project to get started",
       },
     },
+    projectCategory: {
+      uncategorized: "Uncategorized",
+      label: "Category",
+      namePlaceholder: "Category name",
+      actions: {
+        menu: "Category actions",
+        create: "New category",
+        rename: "Rename",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        delete: "Delete category",
+      },
+      new: {
+        title: "New category",
+        submit: "Create",
+      },
+      rename: {
+        title: "Rename category",
+        submit: "Rename",
+      },
+      confirmations: {
+        deleteTitle: "Delete category?",
+        deleteMessage: 'Projects in "{{categoryName}}" move to Uncategorized.',
+        deleteConfirm: "Delete",
+        cancel: "Cancel",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Service {{name}} running",

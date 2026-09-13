@@ -40,6 +40,7 @@ import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import type { PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
 import { RetainedPanelActivity } from "@/components/retained-panel";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
+import type { SidebarProjectCategoryView } from "@/components/sidebar/sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useHosts } from "@/runtime/host-runtime";
@@ -71,8 +72,11 @@ interface SidebarSharedProps {
   isManualRefresh: boolean;
   groupMode: SidebarGroupMode;
   collapsedProjectKeys: ReadonlySet<string>;
+  projectCategoryViews: SidebarProjectCategoryView[];
+  collapsedProjectCategoryKeys: ReadonlySet<string>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
+  toggleProjectCategoryCollapsed: (projectCategoryKey: string) => void;
   handleRefresh: () => void;
   handleOpenProject: () => void;
   handleImportSession: () => void;
@@ -123,6 +127,9 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     pinnedGroups,
     collapsedProjectKeys,
     toggleProjectCollapsed,
+    projectCategoryViews,
+    collapsedProjectCategoryKeys,
+    toggleProjectCategoryCollapsed,
     groupMode,
     shortcutModel,
   } = useSidebarModel();
@@ -214,8 +221,11 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     isManualRefresh,
     groupMode,
     collapsedProjectKeys,
+    projectCategoryViews,
+    collapsedProjectCategoryKeys,
     shortcutIndexByWorkspaceKey,
     toggleProjectCollapsed,
+    toggleProjectCategoryCollapsed,
     handleRefresh,
     labels,
   };
@@ -518,8 +528,11 @@ function MobileSidebar({
   isManualRefresh,
   groupMode,
   collapsedProjectKeys,
+  projectCategoryViews,
+  collapsedProjectCategoryKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
+  toggleProjectCategoryCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -582,6 +595,9 @@ function MobileSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
+            projectCategoryViews={projectCategoryViews}
+            collapsedProjectCategoryKeys={collapsedProjectCategoryKeys}
+            onToggleProjectCategoryCollapsed={toggleProjectCategoryCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}
@@ -630,8 +646,11 @@ function DesktopSidebar({
   isManualRefresh,
   groupMode,
   collapsedProjectKeys,
+  projectCategoryViews,
+  collapsedProjectCategoryKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
+  toggleProjectCategoryCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -760,6 +779,9 @@ function DesktopSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
+            projectCategoryViews={projectCategoryViews}
+            collapsedProjectCategoryKeys={collapsedProjectCategoryKeys}
+            onToggleProjectCategoryCollapsed={toggleProjectCategoryCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}

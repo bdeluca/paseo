@@ -1209,6 +1209,33 @@ export const ja: TranslationResources = {
         description: "始めるにはプロジェクトを追加してください",
       },
     },
+    projectCategory: {
+      uncategorized: "未分類",
+      label: "カテゴリ",
+      namePlaceholder: "カテゴリ名",
+      actions: {
+        menu: "カテゴリ操作",
+        create: "新しいカテゴリ",
+        rename: "名前を変更",
+        moveUp: "上へ移動",
+        moveDown: "下へ移動",
+        delete: "カテゴリを削除",
+      },
+      new: {
+        title: "新しいカテゴリ",
+        submit: "作成",
+      },
+      rename: {
+        title: "カテゴリ名を変更",
+        submit: "変更",
+      },
+      confirmations: {
+        deleteTitle: "カテゴリを削除しますか？",
+        deleteMessage: '"{{categoryName}}" のプロジェクトは未分類に移動します。',
+        deleteConfirm: "削除",
+        cancel: "キャンセル",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "サービス {{name}} 実行中",

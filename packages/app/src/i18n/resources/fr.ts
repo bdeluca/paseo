@@ -1231,6 +1231,33 @@ export const fr: TranslationResources = {
         description: "Ajoutez un projet pour commencer",
       },
     },
+    projectCategory: {
+      uncategorized: "Sans catégorie",
+      label: "Catégorie",
+      namePlaceholder: "Nom de la catégorie",
+      actions: {
+        menu: "Actions de la catégorie",
+        create: "Nouvelle catégorie",
+        rename: "Renommer",
+        moveUp: "Déplacer vers le haut",
+        moveDown: "Déplacer vers le bas",
+        delete: "Supprimer la catégorie",
+      },
+      new: {
+        title: "Nouvelle catégorie",
+        submit: "Créer",
+      },
+      rename: {
+        title: "Renommer la catégorie",
+        submit: "Renommer",
+      },
+      confirmations: {
+        deleteTitle: "Supprimer la catégorie ?",
+        deleteMessage: 'Les projets de "{{categoryName}}" passeront dans Sans catégorie.',
+        deleteConfirm: "Supprimer",
+        cancel: "Annuler",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Service {{name}} en cours",

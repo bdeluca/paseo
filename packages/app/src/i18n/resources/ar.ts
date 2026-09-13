@@ -1195,6 +1195,33 @@ export const ar: TranslationResources = {
         description: "أضف مشروعًا للبدء",
       },
     },
+    projectCategory: {
+      uncategorized: "غير مصنّف",
+      label: "الفئة",
+      namePlaceholder: "اسم الفئة",
+      actions: {
+        menu: "إجراءات الفئة",
+        create: "فئة جديدة",
+        rename: "إعادة تسمية",
+        moveUp: "تحريك لأعلى",
+        moveDown: "تحريك لأسفل",
+        delete: "حذف الفئة",
+      },
+      new: {
+        title: "فئة جديدة",
+        submit: "إنشاء",
+      },
+      rename: {
+        title: "إعادة تسمية الفئة",
+        submit: "إعادة تسمية",
+      },
+      confirmations: {
+        deleteTitle: "هل تريد حذف الفئة؟",
+        deleteMessage: 'ستنتقل المشاريع في "{{categoryName}}" إلى غير مصنّف.',
+        deleteConfirm: "حذف",
+        cancel: "إلغاء",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "الخدمة {{name}} قيد التشغيل",

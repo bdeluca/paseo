@@ -1221,6 +1221,33 @@ export const ptBR: TranslationResources = {
         description: "Adicione um projeto para começar",
       },
     },
+    projectCategory: {
+      uncategorized: "Sem categoria",
+      label: "Categoria",
+      namePlaceholder: "Nome da categoria",
+      actions: {
+        menu: "Ações da categoria",
+        create: "Nova categoria",
+        rename: "Renomear",
+        moveUp: "Mover para cima",
+        moveDown: "Mover para baixo",
+        delete: "Excluir categoria",
+      },
+      new: {
+        title: "Nova categoria",
+        submit: "Criar",
+      },
+      rename: {
+        title: "Renomear categoria",
+        submit: "Renomear",
+      },
+      confirmations: {
+        deleteTitle: "Excluir a categoria?",
+        deleteMessage: 'Os projetos em "{{categoryName}}" vão para Sem categoria.',
+        deleteConfirm: "Excluir",
+        cancel: "Cancelar",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Serviço {{name}} em execução",

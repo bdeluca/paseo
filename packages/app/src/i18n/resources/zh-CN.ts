@@ -1185,6 +1185,33 @@ export const zhCN: TranslationResources = {
         description: "添加 project 以开始",
       },
     },
+    projectCategory: {
+      uncategorized: "未分类",
+      label: "分类",
+      namePlaceholder: "分类名称",
+      actions: {
+        menu: "分类操作",
+        create: "新建分类",
+        rename: "重命名",
+        moveUp: "上移",
+        moveDown: "下移",
+        delete: "删除分类",
+      },
+      new: {
+        title: "新建分类",
+        submit: "创建",
+      },
+      rename: {
+        title: "重命名分类",
+        submit: "重命名",
+      },
+      confirmations: {
+        deleteTitle: "删除该分类？",
+        deleteMessage: '"{{categoryName}}" 中的项目将移到未分类。',
+        deleteConfirm: "删除",
+        cancel: "取消",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "服务 {{name}} 运行中",

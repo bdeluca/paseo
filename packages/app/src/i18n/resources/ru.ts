@@ -1213,6 +1213,33 @@ export const ru: TranslationResources = {
         description: "Добавьте проект, чтобы начать работу",
       },
     },
+    projectCategory: {
+      uncategorized: "Без категории",
+      label: "Категория",
+      namePlaceholder: "Название категории",
+      actions: {
+        menu: "Действия категории",
+        create: "Новая категория",
+        rename: "Переименовать",
+        moveUp: "Переместить вверх",
+        moveDown: "Переместить вниз",
+        delete: "Удалить категорию",
+      },
+      new: {
+        title: "Новая категория",
+        submit: "Создать",
+      },
+      rename: {
+        title: "Переименовать категорию",
+        submit: "Переименовать",
+      },
+      confirmations: {
+        deleteTitle: "Удалить категорию?",
+        deleteMessage: "Проекты из «{{categoryName}}» перейдут в «Без категории».",
+        deleteConfirm: "Удалить",
+        cancel: "Отмена",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Сервис {{name}} запущен",
