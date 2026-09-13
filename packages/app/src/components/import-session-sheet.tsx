@@ -32,6 +32,7 @@ import {
   getPromptPreview,
   getSessionTitle,
   hasMoreSessions,
+  landedInRequestedWorkspace,
   resolveDirectoryLabel,
   nextPageLimit,
   PER_PROVIDER_LIMIT,
@@ -610,10 +611,15 @@ export function ImportSessionSheet({
     },
     onSuccess: ({ agent, target }) => {
       onClose();
-      if (target.crossWorkspace) {
-        onImported?.(agent);
-      } else {
+      if (
+        landedInRequestedWorkspace({
+          requestedWorkspaceId: target.workspaceId,
+          agentWorkspaceId: agent.workspaceId,
+        })
+      ) {
         onImportedAgent?.(agent.id);
+      } else {
+        onImported?.(agent);
       }
       void queryClient.invalidateQueries({
         queryKey: sessionsQueryRoot,

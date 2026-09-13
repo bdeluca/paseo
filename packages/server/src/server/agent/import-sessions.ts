@@ -227,8 +227,14 @@ async function importProviderSessionNow(
     ) {
       labelPatch[PARENT_AGENT_ID_LABEL] = requestedParentAgentId;
     }
+    // A record Paseo already owns keeps its own workspace. The request's workspace
+    // places a session the daemon has never seen; applying it to a known record
+    // re-homed the agent into whichever workspace the client had open and left its
+    // subagents behind in the original one. Moving an agent is a separate, explicit
+    // operation. A record with no owner adopts the placement resolved for this import.
+    const restoredWorkspaceId = archivedRecord.workspaceId ?? workspaceId;
     await unarchiveAgentState(input.agentStorage, input.agentManager, archivedRecord.id, {
-      workspaceId,
+      workspaceId: restoredWorkspaceId,
       labels: Object.keys(labelPatch).length > 0 ? labelPatch : undefined,
     });
     try {

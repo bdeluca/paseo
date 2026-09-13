@@ -13,6 +13,7 @@ import {
   nextPageLimit,
   PER_PROVIDER_LIMIT,
   resolveDirectoryLabel,
+  landedInRequestedWorkspace,
   resolveImportTarget,
   resolveProvidersToFetch,
   requiresImportSessionsHostUpgrade,
@@ -314,7 +315,7 @@ describe("resolveImportTarget", () => {
         workspaceId: "ws-1",
         isScopedListing: true,
       }),
-    ).toEqual({ workspaceId: "ws-1", crossWorkspace: false });
+    ).toEqual({ workspaceId: "ws-1" });
   });
 
   it("keeps the current workspace for a Show-all row in that workspace's directory", () => {
@@ -325,7 +326,7 @@ describe("resolveImportTarget", () => {
         workspaceId: "ws-1",
         isScopedListing: false,
       }),
-    ).toEqual({ workspaceId: "ws-1", crossWorkspace: false });
+    ).toEqual({ workspaceId: "ws-1" });
   });
 
   it("drops the workspace for a Show-all row from another directory, which the daemon rejects", () => {
@@ -336,13 +337,33 @@ describe("resolveImportTarget", () => {
         workspaceId: "ws-1",
         isScopedListing: false,
       }),
-    ).toEqual({ crossWorkspace: true });
+    ).toEqual({});
   });
 
-  it("treats a sheet with no workspace as cross-workspace", () => {
-    expect(resolveImportTarget({ entryCwd: "/repo/paseo", isScopedListing: false })).toEqual({
-      crossWorkspace: true,
-    });
+  it("requests no workspace when the sheet was opened host-wide", () => {
+    expect(resolveImportTarget({ entryCwd: "/repo/paseo", isScopedListing: false })).toEqual({});
+  });
+});
+
+describe("landedInRequestedWorkspace", () => {
+  it("keeps the agent here when the daemon reports the workspace that was requested", () => {
+    expect(
+      landedInRequestedWorkspace({ requestedWorkspaceId: "ws-1", agentWorkspaceId: "ws-1" }),
+    ).toBe(true);
+  });
+
+  it("sends the user away when a restored session came back in its own workspace", () => {
+    expect(
+      landedInRequestedWorkspace({ requestedWorkspaceId: "ws-1", agentWorkspaceId: "ws-original" }),
+    ).toBe(false);
+  });
+
+  it("sends the user away when no workspace was requested", () => {
+    expect(landedInRequestedWorkspace({ agentWorkspaceId: "ws-1" })).toBe(false);
+  });
+
+  it("sends the user away when the daemon reports no workspace", () => {
+    expect(landedInRequestedWorkspace({ requestedWorkspaceId: "ws-1" })).toBe(false);
   });
 });
 
