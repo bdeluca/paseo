@@ -815,6 +815,12 @@ export interface FetchAgentResult {
   project: ProjectPlacementPayload | null;
 }
 
+export interface AgentWorkspaceMoveResult {
+  /** The moved agent plus every descendant carried with it. */
+  movedAgentIds: string[];
+  previousWorkspaceId: string | null;
+}
+
 export interface WaitForFinishResult {
   status: "idle" | "error" | "permission" | "timeout";
   final: AgentSnapshotPayload | null;
@@ -2775,6 +2781,31 @@ export class DaemonClient {
     if (!payload.accepted) {
       throw new Error(payload.error ?? "detachAgent rejected");
     }
+  }
+
+  /**
+   * Reassigns which workspace owns an agent. The agent keeps its id, history, title,
+   * labels and `cwd`; every descendant that shared its workspace is carried with it.
+   */
+  async moveAgentToWorkspace(
+    agentId: string,
+    workspaceId: string,
+  ): Promise<AgentWorkspaceMoveResult> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.workspace.move.response">({
+        message: {
+          type: "agent.workspace.move.request",
+          agentId,
+          workspaceId,
+        },
+      });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "moveAgentToWorkspace rejected");
+    }
+    return {
+      movedAgentIds: payload.movedAgentIds,
+      previousWorkspaceId: payload.previousWorkspaceId,
+    };
   }
 
   async updateAgent(

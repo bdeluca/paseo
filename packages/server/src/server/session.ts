@@ -105,6 +105,7 @@ import {
   cancelAgentRunCommand,
   closeAgentCommand,
   detachAgentCommand,
+  moveAgentToWorkspaceCommand,
   setAgentModeCommand,
   updateAgentCommand,
 } from "./agent/lifecycle-command.js";
@@ -376,6 +377,10 @@ type FetchAgentsResponseEntry = FetchAgentsResponsePayload["entries"][number];
 type FetchAgentsResponsePageInfo = FetchAgentsResponsePayload["pageInfo"];
 type AgentUpdatesFilter = FetchAgentsRequestFilter;
 type CreateAgentRequestMessage = Extract<SessionInboundMessage, { type: "create_agent_request" }>;
+type AgentWorkspaceMoveRequestMessage = Extract<
+  SessionInboundMessage,
+  { type: "agent.workspace.move.request" }
+>;
 
 interface ResolvedSessionCreateAgentIntent {
   config: AgentSessionConfig;
@@ -2557,6 +2562,8 @@ export class Session {
     switch (msg.type) {
       case "agent.detach.request":
         return this.handleDetachAgentRequest(msg.agentId, msg.requestId);
+      case "agent.workspace.move.request":
+        return this.handleAgentWorkspaceMoveRequest(msg);
       default:
         return undefined;
     }
@@ -3160,6 +3167,67 @@ export class Session {
     }
 
     return { agentId, archivedAt };
+  }
+
+  private async handleAgentWorkspaceMoveRequest(
+    msg: AgentWorkspaceMoveRequestMessage,
+  ): Promise<void> {
+    const { agentId, workspaceId, requestId } = msg;
+    this.sessionLogger.info({ agentId, workspaceId, requestId }, "Moving agent to workspace");
+
+    try {
+      await this.requireMoveTargetWorkspace(workspaceId);
+      const result = await moveAgentToWorkspaceCommand(
+        { agentManager: this.agentManager },
+        { agentId, workspaceId },
+      );
+      await this.emitWorkspaceUpdatesForWorkspaceIds(result.affectedWorkspaceIds);
+
+      this.emit({
+        type: "agent.workspace.move.response",
+        payload: {
+          requestId,
+          agentId,
+          workspaceId,
+          movedAgentIds: result.movedAgentIds,
+          previousWorkspaceId: result.previousWorkspaceId,
+          accepted: true,
+          error: null,
+        },
+      });
+    } catch (error) {
+      const message = getErrorMessageOr(error, "Failed to move agent");
+      this.sessionLogger.error(
+        { err: error, agentId, workspaceId, requestId },
+        "Failed to move agent to workspace",
+      );
+      this.emit({
+        type: "agent.workspace.move.response",
+        payload: {
+          requestId,
+          agentId,
+          workspaceId,
+          movedAgentIds: [],
+          previousWorkspaceId: null,
+          accepted: false,
+          error: message,
+        },
+      });
+    }
+  }
+
+  // A move only reassigns ownership, so the target has to be a workspace that can
+  // hold an agent. Its cwd is deliberately not compared with the agent's: cwd says
+  // where the agent runs, workspaceId says which workspace owns it.
+  private async requireMoveTargetWorkspace(workspaceId: string): Promise<void> {
+    const workspace = await this.workspaceRegistry.get(workspaceId);
+    if (!workspace || workspace.archivedAt) {
+      throw new Error(`Workspace not found: ${workspaceId}`);
+    }
+    const project = await this.projectRegistry.get(workspace.projectId);
+    if (!project || project.archivedAt) {
+      throw new Error(`Project not found: ${workspace.projectId}`);
+    }
   }
 
   private async handleDetachAgentRequest(agentId: string, requestId: string): Promise<void> {
