@@ -285,6 +285,21 @@ export const ko: TranslationResources = {
       clearSearch: "검색 지우기",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "워크스페이스로 이동…",
+      title: "워크스페이스로 이동",
+      searchPlaceholder: "워크스페이스 검색",
+      subtitle: "{{name}}은(는) 있던 자리에서 계속 실행되며 소유 워크스페이스만 바뀝니다.",
+      carriesOne: "{{name}}이(가) 서브에이전트 1개와 함께 이동합니다.",
+      carriesMany: "{{name}}이(가) 서브에이전트 {{count}}개와 함께 이동합니다.",
+      empty: "이동할 다른 워크스페이스가 없습니다.",
+      noMatches: "검색과 일치하는 워크스페이스가 없습니다.",
+      error: "에이전트를 이동할 수 없습니다",
+      disconnected: "호스트 연결이 끊겼습니다.",
+      moved: "{{workspace}}(으)로 이동했습니다",
+    },
+  },
   agentList: {
     fallbackTitle: "새 세션",
     dateSections: {

@@ -289,6 +289,22 @@ export const es: TranslationResources = {
       clearSearch: "Borrar búsqueda",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "Mover a espacio de trabajo…",
+      title: "Mover a espacio de trabajo",
+      searchPlaceholder: "Buscar espacios de trabajo",
+      subtitle:
+        "{{name}} sigue ejecutándose donde está; solo cambia el espacio de trabajo propietario.",
+      carriesOne: "{{name}} se mueve con 1 subagente.",
+      carriesMany: "{{name}} se mueve con {{count}} subagentes.",
+      empty: "No hay otro espacio de trabajo al que mover.",
+      noMatches: "Ningún espacio de trabajo coincide con esa búsqueda.",
+      error: "No se pudo mover el agente",
+      disconnected: "El host está desconectado.",
+      moved: "Movido a {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "Nueva sesión",
     dateSections: {

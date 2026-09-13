@@ -41,6 +41,7 @@ import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
+import { useMoveToWorkspace } from "@/agents/move-to-workspace/use-move-to-workspace";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
 import { useToast } from "@/contexts/toast-context";
 import { getOrCreateClientId } from "@/utils/client-id";
@@ -416,6 +417,7 @@ interface MobileWorkspaceTabSwitcherProps {
   onCopyFilePath: (path: string) => Promise<void> | void;
   onReloadAgent: (agentId: string) => Promise<void> | void;
   onRenameTab: (tab: WorkspaceTabDescriptor) => void;
+  onMoveAgentToWorkspace: ((agentId: string) => void) | undefined;
   onCloseTab: (tabId: string) => Promise<void> | void;
   onCloseTabsAbove: (tabId: string) => Promise<void> | void;
   onCloseTabsBelow: (tabId: string) => Promise<void> | void;
@@ -523,6 +525,7 @@ function MobileWorkspaceTabOption({
   onCopyFilePath,
   onReloadAgent,
   onRenameTab,
+  onMoveAgentToWorkspace,
   onCloseTab,
   onCloseTabsAbove,
   onCloseTabsBelow,
@@ -542,6 +545,7 @@ function MobileWorkspaceTabOption({
   onCopyFilePath: (path: string) => Promise<void> | void;
   onReloadAgent: (agentId: string) => Promise<void> | void;
   onRenameTab: (tab: WorkspaceTabDescriptor) => void;
+  onMoveAgentToWorkspace: ((agentId: string) => void) | undefined;
   onCloseTab: (tabId: string) => Promise<void> | void;
   onCloseTabsAbove: (tabId: string) => Promise<void> | void;
   onCloseTabsBelow: (tabId: string) => Promise<void> | void;
@@ -555,6 +559,7 @@ function MobileWorkspaceTabOption({
       copyTerminalId: t("workspace.tabs.menu.copyTerminalId"),
       copyFilePath: t("workspace.tabs.menu.copyFilePath"),
       rename: t("workspace.tabs.menu.rename"),
+      moveToWorkspace: t("agents.moveToWorkspace.menuItem"),
       closeAbove: t("workspace.tabs.menu.closeAbove"),
       closeBelow: t("workspace.tabs.menu.closeBelow"),
       closeLeft: t("workspace.tabs.menu.closeLeft"),
@@ -579,6 +584,7 @@ function MobileWorkspaceTabOption({
     onCopyFilePath,
     onReloadAgent,
     onRenameTab,
+    ...(onMoveAgentToWorkspace ? { onMoveAgentToWorkspace } : {}),
     onCloseTab,
     onCloseTabsBefore: onCloseTabsAbove,
     onCloseTabsAfter: onCloseTabsBelow,
@@ -651,6 +657,7 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
   onCopyFilePath,
   onReloadAgent,
   onRenameTab,
+  onMoveAgentToWorkspace,
   onCloseTab,
   onCloseTabsAbove,
   onCloseTabsBelow,
@@ -708,6 +715,7 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
           onCopyFilePath={onCopyFilePath}
           onReloadAgent={onReloadAgent}
           onRenameTab={onRenameTab}
+          onMoveAgentToWorkspace={onMoveAgentToWorkspace}
           onCloseTab={onCloseTab}
           onCloseTabsAbove={onCloseTabsAbove}
           onCloseTabsBelow={onCloseTabsBelow}
@@ -727,6 +735,7 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
       onCopyFilePath,
       onReloadAgent,
       onRenameTab,
+      onMoveAgentToWorkspace,
       onCloseTab,
       onCloseTabsAbove,
       onCloseTabsBelow,
@@ -2105,6 +2114,7 @@ function WorkspaceScreenContent({
   // A "Show all" import can land in another workspace entirely; that
   // agent has no tab here, so it opens its own workspace instead.
   const navigateToImportedAgent = useNavigateToImportedAgent(normalizedServerId);
+  const moveToWorkspace = useMoveToWorkspace(normalizedServerId);
   const handleImportedAgent = useCallback(
     (agentId: string) => {
       if (!persistenceKey) {
@@ -3976,6 +3986,7 @@ function WorkspaceScreenContent({
         onCopyFilePath={handleCopyFilePath}
         onReloadAgent={handleReloadAgent}
         onRenameTab={handleRenameTab}
+        onMoveAgentToWorkspace={moveToWorkspace.open}
         onCloseTabsToLeft={handleCloseTabsToLeftInPane}
         onCloseTabsToRight={handleCloseTabsToRightInPane}
         onCloseOtherTabs={handleCloseOtherTabsInPane}
@@ -4012,6 +4023,7 @@ function WorkspaceScreenContent({
     handleCopyFilePath,
     handleReloadAgent,
     handleRenameTab,
+    moveToWorkspace.open,
     handleCloseTabsToLeftInPane,
     handleCloseTabsToRightInPane,
     handleCloseOtherTabsInPane,
@@ -4055,6 +4067,7 @@ function WorkspaceScreenContent({
           onCopyFilePath={handleCopyFilePath}
           onReloadAgent={handleReloadAgent}
           onRenameTab={handleRenameTab}
+          onMoveAgentToWorkspace={moveToWorkspace.open}
           onCloseTab={handleCloseTabById}
           onCloseTabsAbove={handleCloseTabsToLeft}
           onCloseTabsBelow={handleCloseTabsToRight}
@@ -4079,6 +4092,7 @@ function WorkspaceScreenContent({
             onCopyFilePath={handleCopyFilePath}
             onReloadAgent={handleReloadAgent}
             onRenameTab={handleRenameTab}
+            onMoveAgentToWorkspace={moveToWorkspace.open}
             onCloseTabsToLeft={handleCloseTabsToLeft}
             onCloseTabsToRight={handleCloseTabsToRight}
             onCloseOtherTabs={handleCloseOtherTabs}
@@ -4119,6 +4133,7 @@ function WorkspaceScreenContent({
           onImportedAgent={handleImportedAgent}
           onImported={navigateToImportedAgent}
         />
+        {moveToWorkspace.sheet}
         <WorkspaceTabRenameModal
           renamingTab={isRouteFocused ? renamingTab : null}
           onSubmit={handleRenameModalSubmit}
