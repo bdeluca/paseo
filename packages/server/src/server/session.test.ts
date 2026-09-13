@@ -1500,6 +1500,137 @@ describe("plugin timeline append RPC", () => {
   });
 });
 
+describe("agent workspace move RPC", () => {
+  const targetWorkspace = {
+    workspaceId: "workspace-target",
+    projectId: "project-target",
+    cwd: "/tmp/target",
+    kind: "worktree" as const,
+    displayName: "Target workspace",
+    title: null,
+    branch: "target",
+    baseBranch: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    archivedAt: null,
+  };
+  const targetProject = {
+    projectId: "project-target",
+    rootPath: "/tmp/target",
+    kind: "git" as const,
+    displayName: "Target",
+    customName: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    archivedAt: null,
+  };
+
+  test("reports the agent and the descendants carried with it", async () => {
+    const messages: unknown[] = [];
+    const moved = createStoredAgentRecord({
+      id: "agent-moved",
+      cwd: "/tmp/source",
+      workspaceId: "workspace-target",
+      title: "Moved",
+    });
+    const carried = createStoredAgentRecord({
+      id: "agent-carried",
+      cwd: "/tmp/source",
+      workspaceId: "workspace-target",
+      title: "Carried",
+      labels: { [PARENT_AGENT_ID_LABEL]: "agent-moved" },
+    });
+    const moveAgentToWorkspace = vi.fn().mockResolvedValue({
+      records: [moved, carried],
+      previousWorkspaceId: "workspace-source",
+    });
+
+    const session = createSessionForTest({
+      messages,
+      agentManager: { getAgent: vi.fn(() => null), moveAgentToWorkspace },
+      agentStorage: {
+        list: vi.fn().mockResolvedValue([]),
+        get: vi.fn().mockResolvedValue(null),
+      },
+      workspaceRegistry: {
+        get: vi.fn().mockResolvedValue(targetWorkspace),
+        list: vi.fn().mockResolvedValue([targetWorkspace]),
+      },
+      projectRegistry: {
+        get: vi.fn().mockResolvedValue(targetProject),
+        list: vi.fn().mockResolvedValue([targetProject]),
+      },
+    });
+
+    await session.handleMessage({
+      type: "agent.workspace.move.request",
+      agentId: "agent-moved",
+      workspaceId: "workspace-target",
+      requestId: "move-1",
+    });
+
+    expect(moveAgentToWorkspace).toHaveBeenCalledWith("agent-moved", "workspace-target");
+    expect(messages).toContainEqual({
+      type: "agent.workspace.move.response",
+      payload: {
+        requestId: "move-1",
+        agentId: "agent-moved",
+        workspaceId: "workspace-target",
+        movedAgentIds: ["agent-moved", "agent-carried"],
+        previousWorkspaceId: "workspace-source",
+        accepted: true,
+        error: null,
+      },
+    });
+  });
+
+  test("refuses an archived target workspace without touching the agent", async () => {
+    const messages: unknown[] = [];
+    const moveAgentToWorkspace = vi.fn();
+
+    const session = createSessionForTest({
+      messages,
+      agentManager: { getAgent: vi.fn(() => null), moveAgentToWorkspace },
+      agentStorage: {
+        list: vi.fn().mockResolvedValue([]),
+        get: vi.fn().mockResolvedValue(null),
+      },
+      workspaceRegistry: {
+        get: vi.fn().mockResolvedValue({
+          ...targetWorkspace,
+          archivedAt: "2026-01-02T00:00:00.000Z",
+        }),
+        list: vi.fn().mockResolvedValue([]),
+      },
+      projectRegistry: {
+        get: vi.fn().mockResolvedValue(targetProject),
+        list: vi.fn().mockResolvedValue([targetProject]),
+      },
+    });
+
+    await session.handleMessage({
+      type: "agent.workspace.move.request",
+      agentId: "agent-moved",
+      workspaceId: "workspace-target",
+      requestId: "move-2",
+    });
+
+    expect(moveAgentToWorkspace).not.toHaveBeenCalled();
+    expect(messages).toContainEqual({
+      type: "agent.workspace.move.response",
+      payload: {
+        requestId: "move-2",
+        agentId: "agent-moved",
+        workspaceId: "workspace-target",
+        movedAgentIds: [],
+        previousWorkspaceId: null,
+        accepted: false,
+        error: "Workspace not found: workspace-target",
+      },
+    });
+  });
+});
+
 describe("agent detach RPC", () => {
   test("detaches a stored subagent and emits the updated standalone agent", async () => {
     const messages: unknown[] = [];

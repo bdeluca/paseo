@@ -265,6 +265,22 @@ export const fr: TranslationResources = {
       clearSearch: "Effacer la recherche",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "Déplacer vers un espace de travail…",
+      title: "Déplacer vers un espace de travail",
+      searchPlaceholder: "Rechercher des espaces de travail",
+      subtitle:
+        "{{name}} continue de s'exécuter au même endroit ; seul l'espace de travail propriétaire change.",
+      carriesOne: "{{name}} se déplace avec 1 sous-agent.",
+      carriesMany: "{{name}} se déplace avec {{count}} sous-agents.",
+      empty: "Aucun autre espace de travail vers lequel déplacer.",
+      noMatches: "Aucun espace de travail ne correspond à cette recherche.",
+      error: "Impossible de déplacer l'agent",
+      disconnected: "L'hôte est déconnecté.",
+      moved: "Déplacé vers {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "Nouvelle séance",
     dateSections: {

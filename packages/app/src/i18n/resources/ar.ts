@@ -260,6 +260,21 @@ export const ar: TranslationResources = {
       clearSearch: "مسح البحث",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "النقل إلى مساحة عمل…",
+      title: "النقل إلى مساحة عمل",
+      searchPlaceholder: "البحث في مساحات العمل",
+      subtitle: "يظل {{name}} يعمل في مكانه؛ تتغير مساحة العمل المالكة فقط.",
+      carriesOne: "ينتقل {{name}} مع وكيل فرعي واحد.",
+      carriesMany: "ينتقل {{name}} مع {{count}} وكلاء فرعيين.",
+      empty: "لا توجد مساحة عمل أخرى للنقل إليها.",
+      noMatches: "لا توجد مساحة عمل تطابق هذا البحث.",
+      error: "تعذر نقل الوكيل",
+      disconnected: "المضيف غير متصل.",
+      moved: "تم النقل إلى {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "جلسة جديدة",
     dateSections: {

@@ -73,6 +73,47 @@ Runtime ownership is resolved from explicit workspace ID and caller context, nev
 
 Users can also detach an existing subagent from the subagents track. Detach is deliberately a manual lifecycle gesture, not an agent-facing MCP tool. It removes the parent and open-tab lifecycle labels: it does not stop, archive, move, or restart the agent. The agent keeps its current `cwd` and `workspaceId`, leaves the former parent's track, and behaves like a root agent for tab close, workspace activity, and future parent archive.
 
+## Moving an agent to another workspace
+
+`agent.workspace.move` is the only deliberate way to change which workspace owns an agent. It writes
+`workspaceId` and nothing else: the agent keeps its ID, history, title, labels, and `cwd`, so a moved
+agent still runs where it always did. Relocating a live agent's working directory would mean
+restarting its provider and is a separate feature.
+
+The move carries the descendants that shared the moved agent's workspace, and leaves a descendant
+already placed somewhere else where it is — the same cross-workspace distinction parent archive makes
+when it detaches instead of cascading. Every descendant is judged against the one source workspace,
+so a move vacates that workspace and no other. Without the carry, moving a parent would silently
+reclassify its whole track as cross-workspace and change both the archive cascade and workspace
+status aggregation for it.
+
+A move is legal while a turn is in flight. `workspaceId` is read at projection time — workspace
+status, placement, teardown, and MCP caller-workspace inheritance — never held across a turn. It runs
+through the per-agent lifecycle queue, so it cannot interleave with archive, close, or resume.
+Archived agents move without being unarchived; `archivedAt` and `workspaceId` are independent.
+
+Import is not a move. Restoring a provider session Paseo already owns returns the record to its own
+workspace: the `workspaceId` on `import_agent_request` places a session the daemon has never seen,
+and applying it to a known record re-homed agents away from their own subagent trees.
+
+The app offers the move from an agent tab's menu — desktop context menu and compact tab switcher —
+built once in `workspace-tab-menu.ts` so the two surfaces cannot drift. The picker states how many
+subagents come along before the target is chosen, rather than confirming after it: the count is what
+a user needs while deciding, not after. `packages/app/src/agents/move-to-workspace/` owns the picker
+and the round-trip, and the item disappears when the host does not advertise `agentWorkspaceMove`.
+
+Dragging an agent onto a sidebar workspace row is not possible today, and the obstacle is structural
+rather than missing wiring. There is no agent row in the sidebar — it renders projects and
+workspaces only — so the draggable representation of an agent is its tab. Tab drag lives in the
+`DndContext` that `split-container.tsx` mounts around the workspace shell, with a two-member payload
+union (`workspace-tab`, `split-pane-drop`) that is about pane layout. The sidebar's rows are
+reorder-only sortables inside a `DndContext` per `DraggableList`, and `LeftSidebar` is mounted from
+`app/_layout.tsx`, above the router and outside the workspace screen entirely. A dnd-kit droppable
+only registers with its nearest provider, so a tab can never resolve a sidebar row as its drop
+target until one provider wraps both and every sidebar list becomes an external-context consumer.
+dnd-kit is also web-only here; the native sortable is inert, so the gesture could not ship to
+phones. Cost that refactor deliberately before starting it.
+
 `notifyOnFinish` defaults to `true` for agent-scoped creation and background prompt follow-ups because most delegated work needs to report back to the creating agent. Set it to `false` only for truly fire-and-forget agents or prompts.
 Permission requests are notification checkpoints, not the end of that subscription. The caller is notified again after a permission response when the child finishes, errors, or requests another permission.
 The permission notification includes the normalized request plus the child and request IDs, so the caller can inspect it and respond without fetching agent status.
