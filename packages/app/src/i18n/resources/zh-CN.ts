@@ -260,6 +260,21 @@ export const zhCN: TranslationResources = {
       clearSearch: "清除搜索",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "移动到工作区…",
+      title: "移动到工作区",
+      searchPlaceholder: "搜索工作区",
+      subtitle: "{{name}} 仍在原处运行，只有所属工作区发生变化。",
+      carriesOne: "{{name}} 将连同 1 个子代理一起移动。",
+      carriesMany: "{{name}} 将连同 {{count}} 个子代理一起移动。",
+      empty: "没有其他工作区可供移动。",
+      noMatches: "没有工作区与该搜索匹配。",
+      error: "无法移动代理",
+      disconnected: "主机已断开连接。",
+      moved: "已移动到 {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "新会话",
     dateSections: {

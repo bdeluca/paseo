@@ -264,6 +264,21 @@ export const ja: TranslationResources = {
       clearSearch: "検索をクリア",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "ワークスペースへ移動…",
+      title: "ワークスペースへ移動",
+      searchPlaceholder: "ワークスペースを検索",
+      subtitle: "{{name}} は現在の場所で実行され続け、所有ワークスペースだけが変わります。",
+      carriesOne: "{{name}} は1つのサブエージェントと一緒に移動します。",
+      carriesMany: "{{name}} は{{count}}個のサブエージェントと一緒に移動します。",
+      empty: "移動先となる他のワークスペースがありません。",
+      noMatches: "その検索に一致するワークスペースはありません。",
+      error: "エージェントを移動できませんでした",
+      disconnected: "ホストが切断されています。",
+      moved: "{{workspace}} へ移動しました",
+    },
+  },
   agentList: {
     fallbackTitle: "新しいセッション",
     dateSections: {

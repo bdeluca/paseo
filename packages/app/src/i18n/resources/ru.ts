@@ -263,6 +263,22 @@ export const ru: TranslationResources = {
       clearSearch: "Очистить поиск",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "Переместить в рабочее пространство…",
+      title: "Переместить в рабочее пространство",
+      searchPlaceholder: "Поиск рабочих пространств",
+      subtitle:
+        "{{name}} продолжит работать там же; меняется только владеющее рабочее пространство.",
+      carriesOne: "{{name}} переместится вместе с 1 подагентом.",
+      carriesMany: "{{name}} переместится вместе с {{count}} подагентами.",
+      empty: "Нет другого рабочего пространства для перемещения.",
+      noMatches: "Ни одно рабочее пространство не соответствует запросу.",
+      error: "Не удалось переместить агента",
+      disconnected: "Хост отключён.",
+      moved: "Перемещено в {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "Новая сессия",
     dateSections: {
