@@ -5,7 +5,7 @@ import {
   serializeCollapsedProjects,
   setProjectCollapsed,
   togglePinnedCollapsed,
-  toggleProjectCategoryCollapsed,
+  toggleProjectGroupCollapsed,
   toggleProjectCollapsed,
   toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
@@ -14,7 +14,7 @@ function emptyState(): CollapsedProjectsState {
   return {
     collapsedProjectKeys: new Set(),
     collapsedWorkspaceGroupKeys: new Set(),
-    collapsedProjectCategoryKeys: new Set(),
+    collapsedProjectGroupKeys: new Set(),
     collapsedPinned: false,
   };
 }
@@ -36,14 +36,14 @@ describe("sidebar collapsed projects transitions", () => {
     const state: CollapsedProjectsState = {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedWorkspaceGroupKeys: new Set(["running"]),
-      collapsedProjectCategoryKeys: new Set(["category_products"]),
+      collapsedProjectGroupKeys: new Set(["group_products"]),
       collapsedPinned: true,
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedWorkspaceGroupKeys: ["running"],
-      collapsedProjectCategoryKeys: ["category_products"],
+      collapsedProjectGroupKeys: ["group_products"],
       collapsedPinned: true,
     });
   });
@@ -56,25 +56,38 @@ describe("sidebar collapsed projects transitions", () => {
     expect(restored.collapsedPinned).toBe(true);
   });
 
-  it("restores collapsed project categories independently from projects", () => {
-    const toggled = toggleProjectCategoryCollapsed(emptyState(), "category_products");
-    expect(Array.from(toggled.collapsedProjectCategoryKeys)).toEqual(["category_products"]);
+  it("restores collapsed project groups independently from projects", () => {
+    const toggled = toggleProjectGroupCollapsed(emptyState(), "group_products");
+    expect(Array.from(toggled.collapsedProjectGroupKeys)).toEqual(["group_products"]);
     expect(Array.from(toggled.collapsedProjectKeys)).toEqual([]);
 
     const restored = mergePersistedCollapsedProjects(
-      { collapsedProjectCategoryKeys: ["category_products"] },
+      { collapsedProjectGroupKeys: ["group_products"] },
       emptyState(),
     );
-    expect(Array.from(restored.collapsedProjectCategoryKeys)).toEqual(["category_products"]);
+    expect(Array.from(restored.collapsedProjectGroupKeys)).toEqual(["group_products"]);
   });
 
-  it("leaves collapsed categories empty for a settings blob written before categories existed", () => {
+  it("restores collapse keys written under the old project-category name", () => {
+    const restored = mergePersistedCollapsedProjects(
+      { collapsedProjectCategoryKeys: ["category_products", "uncategorized"] },
+      emptyState(),
+    );
+
+    // Group ids carry over untouched; the bucket key is a literal, so it takes the new spelling.
+    expect(Array.from(restored.collapsedProjectGroupKeys)).toEqual([
+      "category_products",
+      "ungrouped",
+    ]);
+  });
+
+  it("leaves collapsed groups empty for a settings blob written before groups existed", () => {
     const restored = mergePersistedCollapsedProjects(
       { collapsedProjectKeys: ["project-a"], collapsedPinned: true },
       emptyState(),
     );
 
-    expect(Array.from(restored.collapsedProjectCategoryKeys)).toEqual([]);
+    expect(Array.from(restored.collapsedProjectGroupKeys)).toEqual([]);
     expect(Array.from(restored.collapsedProjectKeys)).toEqual(["project-a"]);
   });
 

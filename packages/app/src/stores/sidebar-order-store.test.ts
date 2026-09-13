@@ -24,7 +24,7 @@ describe("migrateSidebarOrderState", () => {
       workspaceOrderByProject: {
         "project-a": ["host-a:main", "host-a:feature", "host-b:main"],
       },
-      projectCategories: [],
+      projectGroups: [],
     });
   });
 
@@ -36,22 +36,43 @@ describe("migrateSidebarOrderState", () => {
     expect(migrated.pinnedWorkspaceOrder).toEqual(["host-a:one", "host-b:two"]);
   });
 
-  it("restores project categories and drops a project listed by two of them", () => {
+  it("restores project groups and drops a project listed by two of them", () => {
     const migrated = migrateSidebarOrderState({
       projectOrder: ["project-a", "project-b"],
-      projectCategories: [
+      projectGroups: [
         { id: "products", name: "Products", projectViewKeys: ["project-a"] },
         { id: "infra", name: "Infrastructure", projectViewKeys: ["project-a", "project-b"] },
       ],
     });
 
-    expect(migrated.projectCategories).toEqual([
+    expect(migrated.projectGroups).toEqual([
       { id: "products", name: "Products", projectViewKeys: ["project-a"] },
       { id: "infra", name: "Infrastructure", projectViewKeys: ["project-b"] },
     ]);
   });
 
-  it("keeps the orders a pre-categories settings blob carries", () => {
+  it("carries project groups written under the old projectCategories key", () => {
+    const migrated = migrateSidebarOrderState({
+      projectCategories: [{ id: "category_1", name: "Products", projectViewKeys: ["project-a"] }],
+    });
+
+    expect(migrated.projectGroups).toEqual([
+      { id: "category_1", name: "Products", projectViewKeys: ["project-a"] },
+    ]);
+  });
+
+  it("prefers the new key when a blob carries both", () => {
+    const migrated = migrateSidebarOrderState({
+      projectGroups: [{ id: "group_1", name: "Infrastructure", projectViewKeys: ["project-b"] }],
+      projectCategories: [{ id: "category_1", name: "Products", projectViewKeys: ["project-a"] }],
+    });
+
+    expect(migrated.projectGroups).toEqual([
+      { id: "group_1", name: "Infrastructure", projectViewKeys: ["project-b"] },
+    ]);
+  });
+
+  it("keeps the orders a pre-groups settings blob carries", () => {
     const migrated = migrateSidebarOrderState({
       projectOrder: ["project-a"],
       pinnedWorkspaceOrder: ["host-a:one"],
@@ -61,7 +82,7 @@ describe("migrateSidebarOrderState", () => {
       projectOrder: ["project-a"],
       pinnedWorkspaceOrder: ["host-a:one"],
       workspaceOrderByProject: {},
-      projectCategories: [],
+      projectGroups: [],
     });
   });
 });

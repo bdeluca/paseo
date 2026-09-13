@@ -85,8 +85,8 @@ function projectionInput(options?: {
     pinnedCollapsed: options?.pinnedCollapsed ?? false,
     collapsedProjectKeys: new Set<string>(),
     collapsedWorkspaceGroupKeys: new Set<string>(),
-    collapsedProjectCategoryKeys: new Set<string>(),
-    projectCategories: [],
+    collapsedProjectGroupKeys: new Set<string>(),
+    projectGroups: [],
   };
 }
 
@@ -170,12 +170,12 @@ describe("buildSidebarProjection", () => {
     ]);
   });
 
-  it("leaves every project in Uncategorized when no category exists", () => {
+  it("leaves every project in Ungrouped when no group exists", () => {
     const projection = buildSidebarProjection(twoProjectInput("project"));
 
-    expect(projection.projectCategoryViews).toHaveLength(1);
-    expect(projection.projectCategoryViews[0]?.id).toBeNull();
-    expect(projection.projectCategoryViews[0]?.projects.map((project) => project.viewKey)).toEqual([
+    expect(projection.projectGroupViews).toHaveLength(1);
+    expect(projection.projectGroupViews[0]?.id).toBeNull();
+    expect(projection.projectGroupViews[0]?.projects.map((project) => project.viewKey)).toEqual([
       "project",
       "other-project",
     ]);
@@ -185,20 +185,20 @@ describe("buildSidebarProjection", () => {
     ]);
   });
 
-  it("orders project rows and shortcuts by category, remainder last", () => {
+  it("orders project rows and shortcuts by group, remainder last", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
-      projectCategories: [
+      projectGroups: [
         { id: "infra", name: "Infrastructure", projectViewKeys: ["other-project"] },
         { id: "products", name: "Products", projectViewKeys: [] },
       ],
     });
 
-    const renderedCategories = projection.projectCategoryViews.map((category) => ({
-      name: category.name,
-      projectViewKeys: category.projects.map(toProjectViewKey),
+    const renderedGroups = projection.projectGroupViews.map((group) => ({
+      name: group.name,
+      projectViewKeys: group.projects.map(toProjectViewKey),
     }));
-    expect(renderedCategories).toEqual([
+    expect(renderedGroups).toEqual([
       { name: "Infrastructure", projectViewKeys: ["other-project"] },
       { name: "Products", projectViewKeys: [] },
       { name: null, projectViewKeys: ["project"] },
@@ -209,13 +209,11 @@ describe("buildSidebarProjection", () => {
     ]);
   });
 
-  it("does not number the rows inside a collapsed category", () => {
+  it("does not number the rows inside a collapsed group", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
-      projectCategories: [
-        { id: "infra", name: "Infrastructure", projectViewKeys: ["other-project"] },
-      ],
-      collapsedProjectCategoryKeys: new Set(["infra"]),
+      projectGroups: [{ id: "infra", name: "Infrastructure", projectViewKeys: ["other-project"] }],
+      collapsedProjectGroupKeys: new Set(["infra"]),
     });
 
     expect(projection.shortcutModel.shortcutTargets).toEqual([
@@ -223,19 +221,19 @@ describe("buildSidebarProjection", () => {
     ]);
   });
 
-  it("keeps a category that claims a project the sidebar cannot see", () => {
+  it("keeps a group that claims a project the sidebar cannot see", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
-      projectCategories: [{ id: "infra", name: "Infrastructure", projectViewKeys: ["offline"] }],
+      projectGroups: [{ id: "infra", name: "Infrastructure", projectViewKeys: ["offline"] }],
     });
 
-    expect(projection.projectCategoryViews[0]).toEqual({
+    expect(projection.projectGroupViews[0]).toEqual({
       id: "infra",
       name: "Infrastructure",
       collapseKey: "infra",
       projects: [],
     });
-    expect(projection.projectCategoryViews[1]?.projects.map((project) => project.viewKey)).toEqual([
+    expect(projection.projectGroupViews[1]?.projects.map((project) => project.viewKey)).toEqual([
       "project",
       "other-project",
     ]);

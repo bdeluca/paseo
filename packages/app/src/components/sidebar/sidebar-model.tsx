@@ -15,7 +15,7 @@ import {
 } from "@/stores/sidebar-view-store";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
-import { buildSidebarProjection, type SidebarProjectCategoryView } from "./sidebar-projection";
+import { buildSidebarProjection, type SidebarProjectGroupView } from "./sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
@@ -42,9 +42,9 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   pinnedGroups: PinnedSidebarGroups;
   collapsedProjectKeys: ReadonlySet<string>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
-  projectCategoryViews: SidebarProjectCategoryView[];
-  collapsedProjectCategoryKeys: ReadonlySet<string>;
-  toggleProjectCategoryCollapsed: (projectCategoryKey: string) => void;
+  projectGroupViews: SidebarProjectGroupView[];
+  collapsedProjectGroupKeys: ReadonlySet<string>;
+  toggleProjectGroupCollapsed: (projectGroupKey: string) => void;
   shortcutModel: SidebarShortcutModel;
 }
 
@@ -69,17 +69,17 @@ export function SidebarModelProvider({
   const collapsedWorkspaceGroupKeys = useSidebarCollapsedSectionsStore(
     (state) => state.collapsedWorkspaceGroupKeys,
   );
-  const collapsedProjectCategoryKeys = useSidebarCollapsedSectionsStore(
-    (state) => state.collapsedProjectCategoryKeys,
+  const collapsedProjectGroupKeys = useSidebarCollapsedSectionsStore(
+    (state) => state.collapsedProjectGroupKeys,
   );
   const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
   const pinnedWorkspaceOrder = useSidebarOrderStore((state) => state.pinnedWorkspaceOrder);
-  const projectCategories = useSidebarOrderStore((state) => state.projectCategories);
+  const projectGroups = useSidebarOrderStore((state) => state.projectGroups);
   const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleProjectCollapsed,
   );
-  const toggleProjectCategoryCollapsed = useSidebarCollapsedSectionsStore(
-    (state) => state.toggleProjectCategoryCollapsed,
+  const toggleProjectGroupCollapsed = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleProjectGroupCollapsed,
   );
   const availableLabelNames = useMemo(
     () => labelHosts.flatMap((host) => host.labels.map((label) => label.name)),
@@ -160,14 +160,14 @@ export function SidebarModelProvider({
       pinnedCollapsed,
       collapsedProjectKeys,
       collapsedWorkspaceGroupKeys,
-      collapsedProjectCategoryKeys,
-      projectCategories,
+      collapsedProjectGroupKeys,
+      projectGroups,
     }),
     [
       collapsedProjectKeys,
       collapsedWorkspaceGroupKeys,
-      collapsedProjectCategoryKeys,
-      projectCategories,
+      collapsedProjectGroupKeys,
+      projectGroups,
       groupMode,
       list.projectNamesByViewKey,
       filteredProjects,
@@ -192,16 +192,16 @@ export function SidebarModelProvider({
       pinnedGroups: projection.pinnedGroups,
       collapsedProjectKeys,
       toggleProjectCollapsed,
-      projectCategoryViews: projection.projectCategoryViews,
-      collapsedProjectCategoryKeys,
-      toggleProjectCategoryCollapsed,
+      projectGroupViews: projection.projectGroupViews,
+      collapsedProjectGroupKeys,
+      toggleProjectGroupCollapsed,
       shortcutModel: projection.shortcutModel,
     }),
     [
       resolvedProjectFilters,
       collapsedProjectKeys,
-      collapsedProjectCategoryKeys,
-      toggleProjectCategoryCollapsed,
+      collapsedProjectGroupKeys,
+      toggleProjectGroupCollapsed,
       groupMode,
       list,
       filteredProjects,

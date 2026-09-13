@@ -40,7 +40,7 @@ import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import type { PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
 import { RetainedPanelActivity } from "@/components/retained-panel";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
-import type { SidebarProjectCategoryView } from "@/components/sidebar/sidebar-projection";
+import type { SidebarProjectGroupView } from "@/components/sidebar/sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useHosts } from "@/runtime/host-runtime";
@@ -72,11 +72,11 @@ interface SidebarSharedProps {
   isManualRefresh: boolean;
   groupMode: SidebarGroupMode;
   collapsedProjectKeys: ReadonlySet<string>;
-  projectCategoryViews: SidebarProjectCategoryView[];
-  collapsedProjectCategoryKeys: ReadonlySet<string>;
+  projectGroupViews: SidebarProjectGroupView[];
+  collapsedProjectGroupKeys: ReadonlySet<string>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
-  toggleProjectCategoryCollapsed: (projectCategoryKey: string) => void;
+  toggleProjectGroupCollapsed: (projectGroupKey: string) => void;
   handleRefresh: () => void;
   handleOpenProject: () => void;
   handleImportSession: () => void;
@@ -127,9 +127,9 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     pinnedGroups,
     collapsedProjectKeys,
     toggleProjectCollapsed,
-    projectCategoryViews,
-    collapsedProjectCategoryKeys,
-    toggleProjectCategoryCollapsed,
+    projectGroupViews,
+    collapsedProjectGroupKeys,
+    toggleProjectGroupCollapsed,
     groupMode,
     shortcutModel,
   } = useSidebarModel();
@@ -221,11 +221,11 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     isManualRefresh,
     groupMode,
     collapsedProjectKeys,
-    projectCategoryViews,
-    collapsedProjectCategoryKeys,
+    projectGroupViews,
+    collapsedProjectGroupKeys,
     shortcutIndexByWorkspaceKey,
     toggleProjectCollapsed,
-    toggleProjectCategoryCollapsed,
+    toggleProjectGroupCollapsed,
     handleRefresh,
     labels,
   };
@@ -528,11 +528,11 @@ function MobileSidebar({
   isManualRefresh,
   groupMode,
   collapsedProjectKeys,
-  projectCategoryViews,
-  collapsedProjectCategoryKeys,
+  projectGroupViews,
+  collapsedProjectGroupKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
-  toggleProjectCategoryCollapsed,
+  toggleProjectGroupCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -595,9 +595,9 @@ function MobileSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
-            projectCategoryViews={projectCategoryViews}
-            collapsedProjectCategoryKeys={collapsedProjectCategoryKeys}
-            onToggleProjectCategoryCollapsed={toggleProjectCategoryCollapsed}
+            projectGroupViews={projectGroupViews}
+            collapsedProjectGroupKeys={collapsedProjectGroupKeys}
+            onToggleProjectGroupCollapsed={toggleProjectGroupCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}
@@ -646,11 +646,11 @@ function DesktopSidebar({
   isManualRefresh,
   groupMode,
   collapsedProjectKeys,
-  projectCategoryViews,
-  collapsedProjectCategoryKeys,
+  projectGroupViews,
+  collapsedProjectGroupKeys,
   shortcutIndexByWorkspaceKey,
   toggleProjectCollapsed,
-  toggleProjectCategoryCollapsed,
+  toggleProjectGroupCollapsed,
   handleRefresh,
   handleOpenProject,
   handleImportSession,
@@ -779,9 +779,9 @@ function DesktopSidebar({
           <SidebarWorkspaceList
             collapsedProjectKeys={collapsedProjectKeys}
             onToggleProjectCollapsed={toggleProjectCollapsed}
-            projectCategoryViews={projectCategoryViews}
-            collapsedProjectCategoryKeys={collapsedProjectCategoryKeys}
-            onToggleProjectCategoryCollapsed={toggleProjectCategoryCollapsed}
+            projectGroupViews={projectGroupViews}
+            collapsedProjectGroupKeys={collapsedProjectGroupKeys}
+            onToggleProjectGroupCollapsed={toggleProjectGroupCollapsed}
             shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
             groupMode={groupMode}
             workspaceGroups={workspaceGroups}

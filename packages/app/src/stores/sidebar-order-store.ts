@@ -4,47 +4,48 @@ import { persist } from "zustand/middleware";
 import { z } from "zod";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 import {
-  moveProjectToCategory,
-  normalizeProjectCategories,
-  removeProjectCategory,
-  renameProjectCategory,
-  reorderCategoryProjectViewKeys,
-  shiftProjectCategory,
-  type SidebarProjectCategory,
-} from "./sidebar-project-categories";
+  moveProjectToGroup,
+  normalizeProjectGroups,
+  removeProjectGroup,
+  renameProjectGroup,
+  reorderGroupProjectViewKeys,
+  shiftProjectGroup,
+  type SidebarProjectGroup,
+} from "./sidebar-project-groups";
 
-export type { SidebarProjectCategory } from "./sidebar-project-categories";
+export type { SidebarProjectGroup } from "./sidebar-project-groups";
 
 interface SidebarOrderStoreState {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
-  projectCategories: SidebarProjectCategory[];
+  projectGroups: SidebarProjectGroup[];
   getProjectOrder: () => string[];
   setProjectOrder: (keys: string[]) => void;
   getPinnedWorkspaceOrder: () => string[];
   setPinnedWorkspaceOrder: (keys: string[]) => void;
   getWorkspaceOrder: (projectViewKey: string) => string[];
   setWorkspaceOrder: (projectViewKey: string, keys: string[]) => void;
-  createProjectCategory: (name: string) => string | null;
-  renameProjectCategory: (categoryId: string, name: string) => void;
-  shiftProjectCategory: (categoryId: string, direction: -1 | 1) => void;
-  setCategoryProjectOrder: (categoryId: string, projectViewKeys: string[]) => void;
-  deleteProjectCategory: (categoryId: string) => void;
-  moveProjectToCategory: (projectViewKey: string, categoryId: string | null) => void;
+  createProjectGroup: (name: string) => string | null;
+  renameProjectGroup: (groupId: string, name: string) => void;
+  shiftProjectGroup: (groupId: string, direction: -1 | 1) => void;
+  setGroupProjectOrder: (groupId: string, projectViewKeys: string[]) => void;
+  deleteProjectGroup: (groupId: string) => void;
+  moveProjectToGroup: (projectViewKey: string, groupId: string | null) => void;
 }
 
 interface SidebarOrderPersistedState {
   projectOrder?: string[];
   pinnedWorkspaceOrder?: string[];
   workspaceOrderByProject?: Record<string, string[]>;
-  projectCategories?: SidebarProjectCategory[];
+  projectGroups?: SidebarProjectGroup[];
+  projectCategories?: SidebarProjectGroup[];
   projectOrderByServerId?: Record<string, string[]>;
   workspaceOrderByServerAndProject?: Record<string, string[]>;
 }
 
 const StringArrayRecordSchema = z.record(z.string(), z.array(z.string()));
-const SidebarProjectCategorySchema = z.strictObject({
+const SidebarProjectGroupSchema = z.strictObject({
   id: z.string(),
   name: z.string(),
   projectViewKeys: z.array(z.string()),
@@ -53,9 +54,12 @@ const SidebarOrderPersistedStateSchema = z.strictObject({
   projectOrder: z.array(z.string()).optional(),
   pinnedWorkspaceOrder: z.array(z.string()).optional(),
   workspaceOrderByProject: StringArrayRecordSchema.optional(),
-  // Optional, because a settings blob written before categories existed has no such key and must
-  // still restore the orders it does carry.
-  projectCategories: z.array(SidebarProjectCategorySchema).optional(),
+  // Optional, because a settings blob written before project groups existed has no such key and
+  // must still restore the orders it does carry.
+  projectGroups: z.array(SidebarProjectGroupSchema).optional(),
+  // COMPAT(projectGroups): the same list shipped as `projectCategories` in v0.8.1 before the
+  // feature took the user's own word. Read by the v2 migration below; remove after 2027-03-13.
+  projectCategories: z.array(SidebarProjectGroupSchema).optional(),
   projectOrderByServerId: StringArrayRecordSchema.optional(),
   workspaceOrderByServerAndProject: StringArrayRecordSchema.optional(),
 });
@@ -137,7 +141,7 @@ export function migrateSidebarOrderState(persistedState: unknown): {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
-  projectCategories: SidebarProjectCategory[];
+  projectGroups: SidebarProjectGroup[];
 } {
   const result = SidebarOrderPersistedStateSchema.safeParse(persistedState);
   if (!result.success) {
@@ -145,7 +149,7 @@ export function migrateSidebarOrderState(persistedState: unknown): {
       projectOrder: [],
       pinnedWorkspaceOrder: [],
       workspaceOrderByProject: {},
-      projectCategories: [],
+      projectGroups: [],
     };
   }
   const state: SidebarOrderPersistedState = result.data;
@@ -180,16 +184,16 @@ export function migrateSidebarOrderState(persistedState: unknown): {
     projectOrder,
     pinnedWorkspaceOrder: normalizeKeys(state.pinnedWorkspaceOrder ?? []),
     workspaceOrderByProject,
-    projectCategories: normalizeProjectCategories(state.projectCategories ?? []),
+    projectGroups: normalizeProjectGroups(state.projectGroups ?? state.projectCategories ?? []),
   };
 }
 
-function createCategoryId(): string {
+function createGroupId(): string {
   const randomId =
     typeof globalThis.crypto?.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `category_${randomId}`;
+  return `group_${randomId}`;
 }
 
 export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
@@ -198,7 +202,7 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
       projectOrder: [],
       pinnedWorkspaceOrder: [],
       workspaceOrderByProject: {},
-      projectCategories: [],
+      projectGroups: [],
       getProjectOrder: () => get().projectOrder,
       setProjectOrder: (keys) => {
         set({ projectOrder: dedupeKeys(keys) });
@@ -220,61 +224,59 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
           },
         }));
       },
-      // Returns the new id so the caller that created a category can move a project into it in
-      // the same gesture, which is how "New category" on a project row works.
-      createProjectCategory: (name) => {
-        const categoryName = name.trim();
-        if (!categoryName) return null;
-        const category: SidebarProjectCategory = {
-          id: createCategoryId(),
-          name: categoryName,
+      // Returns the new id so the caller that created a group can move a project into it in
+      // the same gesture, which is how "New group" on a project row works.
+      createProjectGroup: (name) => {
+        const groupName = name.trim();
+        if (!groupName) return null;
+        const group: SidebarProjectGroup = {
+          id: createGroupId(),
+          name: groupName,
           projectViewKeys: [],
         };
         set((state) => ({
-          projectCategories: normalizeProjectCategories([...state.projectCategories, category]),
+          projectGroups: normalizeProjectGroups([...state.projectGroups, group]),
         }));
-        return category.id;
+        return group.id;
       },
-      renameProjectCategory: (categoryId, name) => {
-        const categoryName = name.trim();
-        if (!categoryName || !categoryId.trim()) return;
+      renameProjectGroup: (groupId, name) => {
+        const groupName = name.trim();
+        if (!groupName || !groupId.trim()) return;
         set((state) => ({
-          projectCategories: normalizeProjectCategories(
-            renameProjectCategory(state.projectCategories, categoryId, categoryName),
+          projectGroups: normalizeProjectGroups(
+            renameProjectGroup(state.projectGroups, groupId, groupName),
           ),
         }));
       },
-      shiftProjectCategory: (categoryId, direction) => {
-        if (!categoryId.trim()) return;
+      shiftProjectGroup: (groupId, direction) => {
+        if (!groupId.trim()) return;
         set((state) => ({
-          projectCategories: normalizeProjectCategories(
-            shiftProjectCategory(state.projectCategories, categoryId, direction),
+          projectGroups: normalizeProjectGroups(
+            shiftProjectGroup(state.projectGroups, groupId, direction),
           ),
         }));
       },
-      setCategoryProjectOrder: (categoryId, projectViewKeys) => {
-        if (!categoryId.trim()) return;
+      setGroupProjectOrder: (groupId, projectViewKeys) => {
+        if (!groupId.trim()) return;
         const orderedKeys = normalizeKeys(projectViewKeys);
         set((state) => ({
-          projectCategories: normalizeProjectCategories(
-            reorderCategoryProjectViewKeys(state.projectCategories, categoryId, orderedKeys),
+          projectGroups: normalizeProjectGroups(
+            reorderGroupProjectViewKeys(state.projectGroups, groupId, orderedKeys),
           ),
         }));
       },
-      deleteProjectCategory: (categoryId) => {
-        if (!categoryId.trim()) return;
+      deleteProjectGroup: (groupId) => {
+        if (!groupId.trim()) return;
         set((state) => ({
-          projectCategories: normalizeProjectCategories(
-            removeProjectCategory(state.projectCategories, categoryId),
-          ),
+          projectGroups: normalizeProjectGroups(removeProjectGroup(state.projectGroups, groupId)),
         }));
       },
-      moveProjectToCategory: (projectViewKey, categoryId) => {
+      moveProjectToGroup: (projectViewKey, groupId) => {
         const scope = projectViewKey.trim();
         if (!scope) return;
         set((state) => ({
-          projectCategories: normalizeProjectCategories(
-            moveProjectToCategory(state.projectCategories, scope, categoryId?.trim() || null),
+          projectGroups: normalizeProjectGroups(
+            moveProjectToGroup(state.projectGroups, scope, groupId?.trim() || null),
           ),
         }));
       },
@@ -286,9 +288,11 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         projectOrder: state.projectOrder,
         pinnedWorkspaceOrder: state.pinnedWorkspaceOrder,
         workspaceOrderByProject: state.workspaceOrderByProject,
-        projectCategories: state.projectCategories,
+        projectGroups: state.projectGroups,
       }),
-      version: 1,
+      // v2 is the rename from `projectCategories`. The persisted shape is otherwise unchanged, so
+      // the bump exists only to make zustand run the migration that carries the old key over.
+      version: 2,
       migrate: migrateSidebarOrderState,
     },
   ),

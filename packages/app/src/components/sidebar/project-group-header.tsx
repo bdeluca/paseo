@@ -56,14 +56,14 @@ function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
 }
 
 /**
- * The heading over one category's projects, and over the Uncategorized remainder.
+ * The heading over one project group's projects, and over the Ungrouped remainder.
  *
- * Uncategorized has no id, so it carries no menu: there is nothing to rename, move or delete, and
- * it is the heading that is always on screen once any category exists. Collapsing is the one thing
- * both kinds share, which is why it is the press on the title rather than a menu item.
+ * Ungrouped has no id, so it carries no menu: there is nothing to rename, move or delete, and it
+ * is the heading that is always on screen once any project group exists. Collapsing is the one
+ * thing both kinds share, which is why it is the press on the title rather than a menu item.
  */
-export function ProjectCategoryHeader({
-  categoryId,
+export function ProjectGroupHeader({
+  groupId,
   name,
   collapsed,
   canMoveUp,
@@ -74,7 +74,7 @@ export function ProjectCategoryHeader({
   onMoveDown,
   onDelete,
 }: {
-  categoryId: string | null;
+  groupId: string | null;
   name: string | null;
   collapsed: boolean;
   canMoveUp: boolean;
@@ -92,8 +92,8 @@ export function ProjectCategoryHeader({
   const kebab = useOpenKebabMenuVisibility(isHovered || isNative || isCompact);
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
   const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
-  const title = name ?? t("sidebar.projectCategory.uncategorized");
-  const testKey = categoryId ?? "uncategorized";
+  const title = name ?? t("sidebar.projectGroup.ungrouped");
+  const testKey = groupId ?? "ungrouped";
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
@@ -101,10 +101,10 @@ export function ProjectCategoryHeader({
   const closeRename = useCallback(() => setIsRenaming(false), []);
   const handleDelete = useCallback(() => {
     void confirmDialog({
-      title: t("sidebar.projectCategory.confirmations.deleteTitle"),
-      message: t("sidebar.projectCategory.confirmations.deleteMessage", { categoryName: title }),
-      confirmLabel: t("sidebar.projectCategory.confirmations.deleteConfirm"),
-      cancelLabel: t("sidebar.projectCategory.confirmations.cancel"),
+      title: t("sidebar.projectGroup.confirmations.deleteTitle"),
+      message: t("sidebar.projectGroup.confirmations.deleteMessage", { groupName: title }),
+      confirmLabel: t("sidebar.projectGroup.confirmations.deleteConfirm"),
+      cancelLabel: t("sidebar.projectGroup.confirmations.cancel"),
       destructive: true,
     }).then((confirmed) => {
       if (confirmed) onDelete();
@@ -123,14 +123,14 @@ export function ProjectCategoryHeader({
         accessibilityState={accessibilityState}
         onPress={onToggle}
         style={styles.titleButton}
-        testID={`sidebar-project-category-header-${testKey}`}
+        testID={`sidebar-project-group-header-${testKey}`}
       >
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
         <Chevron size={12} uniProps={foregroundMutedColorMapping} />
       </Pressable>
-      {categoryId ? (
+      {groupId ? (
         <View
           style={!kebab.showKebab && styles.menuHidden}
           pointerEvents={kebab.showKebab ? "auto" : "none"}
@@ -140,8 +140,8 @@ export function ProjectCategoryHeader({
               hitSlop={8}
               style={kebabTriggerStyle}
               accessibilityRole={isWeb ? undefined : "button"}
-              accessibilityLabel={t("sidebar.projectCategory.actions.menu")}
-              testID={`sidebar-project-category-kebab-${categoryId}`}
+              accessibilityLabel={t("sidebar.projectGroup.actions.menu")}
+              testID={`sidebar-project-group-kebab-${groupId}`}
             >
               {renderKebabTriggerIcon}
             </DropdownMenuTrigger>
@@ -149,32 +149,32 @@ export function ProjectCategoryHeader({
               <DropdownMenuItem
                 leading={renameLeadingIcon}
                 onSelect={openRename}
-                testID={`sidebar-project-category-rename-${categoryId}`}
+                testID={`sidebar-project-group-rename-${groupId}`}
               >
-                {t("sidebar.projectCategory.actions.rename")}
+                {t("sidebar.projectGroup.actions.rename")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 leading={moveUpLeadingIcon}
                 disabled={!canMoveUp}
                 onSelect={onMoveUp}
-                testID={`sidebar-project-category-move-up-${categoryId}`}
+                testID={`sidebar-project-group-move-up-${groupId}`}
               >
-                {t("sidebar.projectCategory.actions.moveUp")}
+                {t("sidebar.projectGroup.actions.moveUp")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 leading={moveDownLeadingIcon}
                 disabled={!canMoveDown}
                 onSelect={onMoveDown}
-                testID={`sidebar-project-category-move-down-${categoryId}`}
+                testID={`sidebar-project-group-move-down-${groupId}`}
               >
-                {t("sidebar.projectCategory.actions.moveDown")}
+                {t("sidebar.projectGroup.actions.moveDown")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 leading={deleteLeadingIcon}
                 onSelect={handleDelete}
-                testID={`sidebar-project-category-delete-${categoryId}`}
+                testID={`sidebar-project-group-delete-${groupId}`}
               >
-                {t("sidebar.projectCategory.actions.delete")}
+                {t("sidebar.projectGroup.actions.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -182,13 +182,13 @@ export function ProjectCategoryHeader({
       ) : null}
       <AdaptiveRenameModal
         visible={isRenaming}
-        title={t("sidebar.projectCategory.rename.title")}
+        title={t("sidebar.projectGroup.rename.title")}
         initialValue={name ?? ""}
-        placeholder={t("sidebar.projectCategory.namePlaceholder")}
-        submitLabel={t("sidebar.projectCategory.rename.submit")}
+        placeholder={t("sidebar.projectGroup.namePlaceholder")}
+        submitLabel={t("sidebar.projectGroup.rename.submit")}
         onClose={closeRename}
         onSubmit={onRename}
-        testID={`sidebar-project-category-rename-modal-${testKey}`}
+        testID={`sidebar-project-group-rename-modal-${testKey}`}
       />
     </View>
   );
