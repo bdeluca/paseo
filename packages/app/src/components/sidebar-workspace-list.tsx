@@ -2006,6 +2006,7 @@ function ProjectGroupBlock({
       <ProjectGroupHeader
         groupId={groupId}
         name={group.name}
+        projectCount={group.projects.length}
         collapsed={collapsed}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
@@ -2016,20 +2017,22 @@ function ProjectGroupBlock({
         onDelete={handleDelete}
       />
       {collapsed || group.projects.length === 0 ? null : (
-        <DraggableList
-          testID={`sidebar-project-list-${group.collapseKey}`}
-          data={group.projects}
-          keyExtractor={projectViewKeyExtractor}
-          renderItem={renderProject}
-          onDragEnd={handleDragEnd}
-          extraData={activeWorkspaceSelectionKey(activeWorkspaceSelection)}
-          scrollEnabled={false}
-          useDragHandle
-          nestable={platformIsNative}
-          simultaneousGestureRef={parentGestureRef}
-          gestureHostPresented={dragGestureHostActive}
-          containerStyle={styles.projectListContainer}
-        />
+        <View style={groupId ? styles.projectGroupMembers : undefined}>
+          <DraggableList
+            testID={`sidebar-project-list-${group.collapseKey}`}
+            data={group.projects}
+            keyExtractor={projectViewKeyExtractor}
+            renderItem={renderProject}
+            onDragEnd={handleDragEnd}
+            extraData={activeWorkspaceSelectionKey(activeWorkspaceSelection)}
+            scrollEnabled={false}
+            useDragHandle
+            nestable={platformIsNative}
+            simultaneousGestureRef={parentGestureRef}
+            gestureHostPresented={dragGestureHostActive}
+            containerStyle={styles.projectListContainer}
+          />
+        </View>
       )}
     </View>
   );
@@ -2708,6 +2711,18 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectGroupBlock: {
     marginTop: theme.spacing[1],
+  },
+  // The spine that binds a named group's projects to the heading above them. A heading scrolls
+  // away; the rule does not, so membership stays readable from any scroll position. Its left edge
+  // sits on the heading glyph's rail, and the indent is the new rail the rows below start on.
+  //
+  // Ungrouped gets neither: its projects sit flush on the sidebar's own rail, exactly where every
+  // project sat before any group existed, which is what makes "not in a group" visible too.
+  projectGroupMembers: {
+    marginLeft: theme.spacing[2],
+    paddingLeft: theme.spacing[1],
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.foregroundExtraMuted,
   },
   projectListContainer: {
     width: "100%",

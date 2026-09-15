@@ -24,6 +24,25 @@ desktop-only path to a thing every platform needs.
 Deleting a group returns its projects to Ungrouped. A group never owns a project hard enough to
 take it with it.
 
+## Telling one from the app's own headings
+
+The sidebar already stacks headings the app derives for itself — the status buckets and Pinned —
+and they are all `foregroundMuted` text. A named project group is the one heading a person made,
+so it is the one drawn in `foreground`, with a leading glyph that is not a status dot and a count
+of the projects under it. Keep that separation: a project group that borrows the muted treatment
+reads as a section label and stops being findable.
+
+Its projects carry a spine — a rule on `foregroundExtraMuted` down the left of the block, with the
+rows indented past it. Membership has to survive scrolling, and a heading does not: once a group is
+longer than the viewport the heading is gone and the rule is the only thing left saying which
+projects belong to it. `border` was tried first and measured a 16/255 channel step against
+`surfaceSidebar` in light and 17/255 in dark — a hairline that close to its background is not a
+signal, so the rule uses the passive-chrome foreground token instead.
+
+Ungrouped keeps the muted title, takes no glyph, no count and no spine, and its projects sit flush
+on the sidebar's own rail — exactly where every project sat before any group existed. That is what
+makes "not in a group" visible as well.
+
 ## What each sidebar mode does
 
 Project mode renders the headings. Status mode groups workspaces and draws no project rows at all,

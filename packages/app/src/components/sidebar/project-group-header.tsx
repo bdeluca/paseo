@@ -5,6 +5,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronRight,
+  Layers,
   MoreVertical,
   Pencil,
   Trash2,
@@ -26,6 +27,7 @@ import { useOpenKebabMenuVisibility } from "./use-open-kebab-menu-visibility";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedChevronRight = withUnistyles(ChevronRight);
+const ThemedLayers = withUnistyles(Layers);
 const ThemedMoreVertical = withUnistyles(MoreVertical);
 const ThemedPencil = withUnistyles(Pencil);
 const ThemedArrowUp = withUnistyles(ArrowUp);
@@ -61,10 +63,17 @@ function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
  * Ungrouped has no id, so it carries no menu: there is nothing to rename, move or delete, and it
  * is the heading that is always on screen once any project group exists. Collapsing is the one
  * thing both kinds share, which is why it is the press on the title rather than a menu item.
+ *
+ * A named group is the only heading in this sidebar drawn in `foreground`, and the only one with a
+ * leading glyph that is not a status dot and a count of what it holds. That is what separates a
+ * bucket the user named from the headings the app derives for itself — the status buckets and
+ * Pinned — which all stay muted. Ungrouped is a remainder rather than a thing anyone made, so it
+ * keeps the muted treatment, takes no icon, no count, and no spine over its rows.
  */
 export function ProjectGroupHeader({
   groupId,
   name,
+  projectCount,
   collapsed,
   canMoveUp,
   canMoveDown,
@@ -76,6 +85,8 @@ export function ProjectGroupHeader({
 }: {
   groupId: string | null;
   name: string | null;
+  /** Projects currently rendered under this heading; a filter can take it to zero. */
+  projectCount: number;
   collapsed: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -94,6 +105,7 @@ export function ProjectGroupHeader({
   const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
   const title = name ?? t("sidebar.projectGroup.ungrouped");
   const testKey = groupId ?? "ungrouped";
+  const isNamedGroup = groupId !== null;
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
@@ -125,9 +137,23 @@ export function ProjectGroupHeader({
         style={styles.titleButton}
         testID={`sidebar-project-group-header-${testKey}`}
       >
-        <Text style={styles.title} numberOfLines={1}>
+        {/* The slot is held open for Ungrouped so every heading's title starts on one rail; only
+          a named group puts a glyph in it. */}
+        <View style={styles.iconSlot}>
+          {isNamedGroup ? <ThemedLayers size={12} uniProps={foregroundMutedColorMapping} /> : null}
+        </View>
+        <Text
+          style={isNamedGroup ? styles.title : styles.titleRemainder}
+          numberOfLines={1}
+          testID={`sidebar-project-group-title-${testKey}`}
+        >
           {title}
         </Text>
+        {isNamedGroup ? (
+          <Text style={styles.count} testID={`sidebar-project-group-count-${testKey}`}>
+            {projectCount}
+          </Text>
+        ) : null}
         <Chevron size={12} uniProps={foregroundMutedColorMapping} />
       </Pressable>
       {groupId ? (
@@ -211,11 +237,33 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1],
   },
+  // The glyph rail the members' spine hangs from: its left edge is where the rule below it sits.
+  iconSlot: {
+    width: theme.iconSize.xs,
+    height: theme.iconSize.xs,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   title: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    flexShrink: 1,
+  },
+  // Ungrouped is what is left over rather than a group anyone made, so it keeps the muted weight
+  // the app's own headings use and never reads as a peer of a named group.
+  titleRemainder: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
     flexShrink: 1,
+  },
+  count: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.normal,
+    flexShrink: 0,
   },
   menuTrigger: {
     width: 24,
