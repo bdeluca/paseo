@@ -1187,6 +1187,7 @@ export const zhCN: TranslationResources = {
     },
     projectGroup: {
       ungrouped: "未分组",
+      topLevel: "顶层",
       label: "项目分组",
       namePlaceholder: "项目分组名称",
       actions: {
@@ -1195,10 +1196,13 @@ export const zhCN: TranslationResources = {
         rename: "重命名",
         moveUp: "上移",
         moveDown: "下移",
+        moveTo: "移动到",
+        createInside: "在其中新建项目分组",
         delete: "删除项目分组",
       },
       new: {
         title: "新建项目分组",
+        insideTitle: '在 "{{groupName}}" 中新建项目分组',
         submit: "创建",
       },
       rename: {
@@ -1207,7 +1211,8 @@ export const zhCN: TranslationResources = {
       },
       confirmations: {
         deleteTitle: "删除该项目分组？",
-        deleteMessage: '"{{groupName}}" 中的项目将移到未分组。',
+        deleteMessage: '"{{groupName}}" 中的项目将移到未分组，其项目分组将移到顶层。',
+        deleteNestedMessage: '"{{groupName}}" 中的项目和项目分组将移到 "{{parentName}}"。',
         deleteConfirm: "删除",
         cancel: "取消",
       },

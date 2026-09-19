@@ -1,8 +1,8 @@
 /**
- * The v1 -> v2 rename, exercised through the real persisted store rather than the migration
- * function alone. The function is only half the path: a stored blob also has to survive
- * `createValidatedPersistStorage`'s strict schema before zustand ever calls `migrate`, and the
- * store has to write the migrated shape back under the new key.
+ * The v1 -> v2 rename and the v2 -> v3 move to nested groups, exercised through the real
+ * persisted store rather than the migration function alone. The function is only half the path:
+ * a stored blob also has to survive `createValidatedPersistStorage`'s strict schema before zustand
+ * ever calls `migrate`, and the store has to write the migrated shape back.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,57 @@ function legacyCategoriesBlob() {
   });
 }
 
+/**
+ * What the flat project-group build (`c6c780344`) writes for a sidebar with three groups: persist
+ * version 2, `group_<uuid>` ids, no `parentId`, one group holding nothing, and a project
+ * (`electricty`) left in Ungrouped. The keys are the shapes on the live install's projects and
+ * workspaces.
+ */
+function flatV2Blob() {
+  return JSON.stringify({
+    version: 2,
+    state: {
+      projectOrder: [
+        "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo",
+        "host:srv_YCMtpwqBasnf:/home/bdeluca/system",
+        "host:srv_YCMtpwqBasnf:/home/bdeluca/src/electricty",
+        "host:srv_YCMtpwqBasnf:/home/bdeluca/src/blackprint-local",
+        "remote:github.com/hydralab-cph/vortexweb",
+      ],
+      pinnedWorkspaceOrder: ["srv_YCMtpwqBasnf:wks_a2cac9ccde517c67"],
+      workspaceOrderByProject: {
+        "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo": [
+          "srv_YCMtpwqBasnf:wks_a2cac9ccde517c67",
+          "srv_YCMtpwqBasnf:wks_eadb666f02c67a94",
+        ],
+      },
+      projectGroups: [
+        {
+          id: "group_3f1c2b7e-0d7a-4c52-9a0e-6b1f7f9e2d11",
+          name: "Paseo",
+          projectViewKeys: [
+            "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo",
+            "host:srv_YCMtpwqBasnf:/home/bdeluca/system",
+          ],
+        },
+        {
+          id: "group_8a6d4e21-5b3c-4f9e-8d27-1c0b9a7e6f55",
+          name: "Vortex",
+          projectViewKeys: [
+            "remote:github.com/hydralab-cph/vortexweb",
+            "host:srv_YCMtpwqBasnf:/home/bdeluca/src/blackprint-local",
+          ],
+        },
+        {
+          id: "group_c0ffee00-1234-4abc-8def-000000000001",
+          name: "Empty for now",
+          projectViewKeys: [],
+        },
+      ],
+    },
+  });
+}
+
 async function rehydrate() {
   await useSidebarOrderStore.persist.rehydrate();
 }
@@ -87,17 +138,19 @@ describe("sidebar order store rehydration", () => {
       {
         id: "category_11111111-1111-4111-8111-111111111111",
         name: "Products",
+        parentId: null,
         projectViewKeys: ["paseo", "electricty"],
       },
       {
         id: "category_22222222-2222-4222-8222-222222222222",
         name: "Infrastructure",
+        parentId: null,
         projectViewKeys: ["system"],
       },
     ]);
   });
 
-  it("rewrites the migrated blob under the new key at version 2", async () => {
+  it("rewrites the migrated blob under the new key at the current version", async () => {
     backing.entries.set(STORAGE_KEY, legacyCategoriesBlob());
 
     await rehydrate();
@@ -106,19 +159,115 @@ describe("sidebar order store rehydration", () => {
     await Promise.resolve();
 
     const persisted = readPersisted();
-    expect(persisted.version).toBe(2);
+    expect(persisted.version).toBe(3);
     expect(persisted.state.projectCategories).toBeUndefined();
     expect(persisted.state.projectGroups).toHaveLength(2);
   });
 
-  it("leaves a v2 blob alone", async () => {
+  it("loads every flat v2 group as a top-level group and drops nothing", async () => {
+    backing.entries.set(STORAGE_KEY, flatV2Blob());
+
+    await rehydrate();
+
+    const state = useSidebarOrderStore.getState();
+    expect(state.projectOrder).toEqual([
+      "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo",
+      "host:srv_YCMtpwqBasnf:/home/bdeluca/system",
+      "host:srv_YCMtpwqBasnf:/home/bdeluca/src/electricty",
+      "host:srv_YCMtpwqBasnf:/home/bdeluca/src/blackprint-local",
+      "remote:github.com/hydralab-cph/vortexweb",
+    ]);
+    expect(state.pinnedWorkspaceOrder).toEqual(["srv_YCMtpwqBasnf:wks_a2cac9ccde517c67"]);
+    expect(state.workspaceOrderByProject).toEqual({
+      "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo": [
+        "srv_YCMtpwqBasnf:wks_a2cac9ccde517c67",
+        "srv_YCMtpwqBasnf:wks_eadb666f02c67a94",
+      ],
+    });
+    expect(state.projectGroups).toEqual([
+      {
+        id: "group_3f1c2b7e-0d7a-4c52-9a0e-6b1f7f9e2d11",
+        name: "Paseo",
+        parentId: null,
+        projectViewKeys: [
+          "host:srv_YCMtpwqBasnf:/home/bdeluca/src/paseo",
+          "host:srv_YCMtpwqBasnf:/home/bdeluca/system",
+        ],
+      },
+      {
+        id: "group_8a6d4e21-5b3c-4f9e-8d27-1c0b9a7e6f55",
+        name: "Vortex",
+        parentId: null,
+        projectViewKeys: [
+          "remote:github.com/hydralab-cph/vortexweb",
+          "host:srv_YCMtpwqBasnf:/home/bdeluca/src/blackprint-local",
+        ],
+      },
+      {
+        id: "group_c0ffee00-1234-4abc-8def-000000000001",
+        name: "Empty for now",
+        parentId: null,
+        projectViewKeys: [],
+      },
+    ]);
+  });
+
+  it("writes a flat sidebar back in the flat build's exact group shape", async () => {
+    backing.entries.set(STORAGE_KEY, flatV2Blob());
+
+    await rehydrate();
+    useSidebarOrderStore.getState().setProjectOrder(useSidebarOrderStore.getState().projectOrder);
+    await Promise.resolve();
+
+    const persisted = readPersisted();
+    expect(persisted.version).toBe(3);
+    // No `parentId: null` on a top-level group: the flat build's strict schema would reject the
+    // whole blob, orders included, over a key it does not know.
+    expect(persisted.state.projectGroups).toEqual(JSON.parse(flatV2Blob()).state.projectGroups);
+  });
+
+  it("round-trips a nested tree through storage", async () => {
+    backing.entries.set(STORAGE_KEY, flatV2Blob());
+    await rehydrate();
+    const store = useSidebarOrderStore.getState();
+    const paseoId = "group_3f1c2b7e-0d7a-4c52-9a0e-6b1f7f9e2d11";
+    const vortexId = "group_8a6d4e21-5b3c-4f9e-8d27-1c0b9a7e6f55";
+    store.moveProjectGroup(vortexId, paseoId);
+    const toolsId = store.createProjectGroup("Tools", vortexId);
+    if (!toolsId) throw new Error("Tools was not created");
+    store.moveProjectToGroup("host:srv_YCMtpwqBasnf:/home/bdeluca/src/electricty", toolsId);
+    await Promise.resolve();
+    const written = useSidebarOrderStore.getState().projectGroups;
+    const stored = backing.entries.get(STORAGE_KEY);
+    if (!stored) throw new Error("nothing persisted");
+
+    // Clearing the store persists the clear, so put the written blob back before reading it.
+    useSidebarOrderStore.setState({ projectGroups: [] });
+    backing.entries.set(STORAGE_KEY, stored);
+    await rehydrate();
+
+    expect(useSidebarOrderStore.getState().projectGroups).toEqual(written);
+    expect(
+      useSidebarOrderStore
+        .getState()
+        .projectGroups.map((group) => [group.name, group.parentId, group.projectViewKeys.length]),
+    ).toEqual([
+      ["Paseo", null, 2],
+      ["Empty for now", null, 0],
+      ["Vortex", paseoId, 2],
+      ["Tools", vortexId, 1],
+    ]);
+  });
+
+  it("lifts a stored group whose parent is gone to the top level", async () => {
     backing.entries.set(
       STORAGE_KEY,
       JSON.stringify({
-        version: 2,
+        version: 3,
         state: {
-          projectOrder: ["paseo"],
-          projectGroups: [{ id: "group_a", name: "Products", projectViewKeys: ["paseo"] }],
+          projectGroups: [
+            { id: "group_a", name: "Kept", parentId: "group_deleted", projectViewKeys: ["paseo"] },
+          ],
         },
       }),
     );
@@ -126,9 +275,8 @@ describe("sidebar order store rehydration", () => {
     await rehydrate();
 
     expect(useSidebarOrderStore.getState().projectGroups).toEqual([
-      { id: "group_a", name: "Products", projectViewKeys: ["paseo"] },
+      { id: "group_a", name: "Kept", parentId: null, projectViewKeys: ["paseo"] },
     ]);
-    expect(useSidebarOrderStore.getState().projectOrder).toEqual(["paseo"]);
   });
 
   it("prefers the new key when a v1 blob somehow carries both", async () => {
@@ -146,7 +294,7 @@ describe("sidebar order store rehydration", () => {
     await rehydrate();
 
     expect(useSidebarOrderStore.getState().projectGroups).toEqual([
-      { id: "group_a", name: "Kept", projectViewKeys: ["paseo"] },
+      { id: "group_a", name: "Kept", parentId: null, projectViewKeys: ["paseo"] },
     ]);
   });
 
@@ -167,7 +315,12 @@ describe("sidebar order store rehydration", () => {
     await rehydrate();
 
     expect(useSidebarOrderStore.getState().projectGroups).toEqual([
-      { id: "category_a", name: "Offline hosts", projectViewKeys: ["gone", "never-existed"] },
+      {
+        id: "category_a",
+        name: "Offline hosts",
+        parentId: null,
+        projectViewKeys: ["gone", "never-existed"],
+      },
     ]);
   });
 

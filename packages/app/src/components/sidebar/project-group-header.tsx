@@ -1,21 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  MoreVertical,
-  Pencil,
-  Trash2,
-} from "lucide-react-native";
+import { ChevronDown, ChevronRight, Layers, MoreVertical } from "lucide-react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
@@ -23,24 +14,16 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative, isWeb } from "@/constants/platform";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import type { Theme } from "@/styles/theme";
+import { useProjectGroupActionsMenu } from "./project-group-menu";
 import { useOpenKebabMenuVisibility } from "./use-open-kebab-menu-visibility";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedChevronRight = withUnistyles(ChevronRight);
 const ThemedLayers = withUnistyles(Layers);
 const ThemedMoreVertical = withUnistyles(MoreVertical);
-const ThemedPencil = withUnistyles(Pencil);
-const ThemedArrowUp = withUnistyles(ArrowUp);
-const ThemedArrowDown = withUnistyles(ArrowDown);
-const ThemedTrash2 = withUnistyles(Trash2);
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-
-const renameLeadingIcon = <ThemedPencil size={14} uniProps={foregroundMutedColorMapping} />;
-const moveUpLeadingIcon = <ThemedArrowUp size={14} uniProps={foregroundMutedColorMapping} />;
-const moveDownLeadingIcon = <ThemedArrowDown size={14} uniProps={foregroundMutedColorMapping} />;
-const deleteLeadingIcon = <ThemedTrash2 size={14} uniProps={foregroundMutedColorMapping} />;
 
 function kebabTriggerStyle({
   hovered = false,
@@ -57,64 +40,124 @@ function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
   );
 }
 
+function HeaderChevron({ collapsed }: { collapsed: boolean }) {
+  const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
+  return <Chevron size={12} uniProps={foregroundMutedColorMapping} />;
+}
+
 /**
- * The heading over one project group's projects, and over the Ungrouped remainder.
+ * The Ungrouped heading. It has no id, so it carries no menu: there is nothing to rename, move or
+ * delete. Collapsing is the one thing it shares with a named group, which is why that is the press
+ * on the title rather than a menu item.
  *
- * Ungrouped has no id, so it carries no menu: there is nothing to rename, move or delete, and it
- * is the heading that is always on screen once any project group exists. Collapsing is the one
- * thing both kinds share, which is why it is the press on the title rather than a menu item.
- *
- * A named group is the only heading in this sidebar drawn in `foreground`, and the only one with a
- * leading glyph that is not a status dot and a count of what it holds. That is what separates a
- * bucket the user named from the headings the app derives for itself — the status buckets and
- * Pinned — which all stay muted. Ungrouped is a remainder rather than a thing anyone made, so it
- * keeps the muted treatment, takes no icon, no count, and no spine over its rows.
+ * Ungrouped is a remainder rather than a thing anyone made, so it keeps the muted treatment the
+ * app's own headings use, takes no icon, no count, and no spine over its rows.
  */
-export function ProjectGroupHeader({
-  groupId,
-  name,
-  projectCount,
+export function UngroupedHeader({
   collapsed,
-  canMoveUp,
-  canMoveDown,
   onToggle,
-  onRename,
-  onMoveUp,
-  onMoveDown,
-  onDelete,
 }: {
-  groupId: string | null;
-  name: string | null;
-  /** Projects currently rendered under this heading; a filter can take it to zero. */
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
+  return (
+    <View style={styles.header}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={accessibilityState}
+        onPress={onToggle}
+        style={styles.titleButton}
+        testID="sidebar-project-group-header-ungrouped"
+      >
+        {/* The slot is held open so every heading's title starts on one rail. */}
+        <View style={styles.iconSlot} />
+        <Text
+          style={styles.titleRemainder}
+          numberOfLines={1}
+          testID="sidebar-project-group-title-ungrouped"
+        >
+          {t("sidebar.projectGroup.ungrouped")}
+        </Text>
+        <HeaderChevron collapsed={collapsed} />
+      </Pressable>
+    </View>
+  );
+}
+
+interface ProjectGroupHeaderProps {
+  groupId: string;
+  name: string;
+  /** The parent's name, or `null` at the top level; it is where a deleted group's contents go. */
+  parentName: string | null;
+  /** Visible projects anywhere in this group's subtree; a filter can take it to zero. */
   projectCount: number;
   collapsed: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onToggle: () => void;
   onRename: (name: string) => void;
+  onCreateInside: (name: string) => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onMoveTo: (parentId: string | null) => void;
   onDelete: () => void;
-}) {
+}
+
+/**
+ * The heading over one named project group.
+ *
+ * A named group is the only heading in this sidebar drawn in `foreground`, and the only one with a
+ * leading glyph that is not a status dot and a count of what it holds. That is what separates a
+ * bucket the user named from the headings the app derives for itself — the status buckets and
+ * Pinned — which all stay muted.
+ *
+ * Its kebab and its right-click / long-press menu render the same `useProjectGroupActionsMenu`
+ * rows, so the two surfaces cannot drift.
+ */
+export function ProjectGroupHeader({
+  groupId,
+  name,
+  parentName,
+  projectCount,
+  collapsed,
+  canMoveUp,
+  canMoveDown,
+  onToggle,
+  onRename,
+  onCreateInside,
+  onMoveUp,
+  onMoveDown,
+  onMoveTo,
+  onDelete,
+}: ProjectGroupHeaderProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const [isHovered, setIsHovered] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [isNamingSubgroup, setIsNamingSubgroup] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const kebab = useOpenKebabMenuVisibility(isHovered || isNative || isCompact);
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
-  const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
-  const title = name ?? t("sidebar.projectGroup.ungrouped");
-  const testKey = groupId ?? "ungrouped";
-  const isNamedGroup = groupId !== null;
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   const openRename = useCallback(() => setIsRenaming(true), []);
   const closeRename = useCallback(() => setIsRenaming(false), []);
+  const openSubgroupDialog = useCallback(() => setIsNamingSubgroup(true), []);
+  const closeSubgroupDialog = useCallback(() => setIsNamingSubgroup(false), []);
   const handleDelete = useCallback(() => {
+    const message =
+      parentName === null
+        ? t("sidebar.projectGroup.confirmations.deleteMessage", { groupName: name })
+        : t("sidebar.projectGroup.confirmations.deleteNestedMessage", {
+            groupName: name,
+            parentName,
+          });
     void confirmDialog({
       title: t("sidebar.projectGroup.confirmations.deleteTitle"),
-      message: t("sidebar.projectGroup.confirmations.deleteMessage", { groupName: title }),
+      message,
       confirmLabel: t("sidebar.projectGroup.confirmations.deleteConfirm"),
       cancelLabel: t("sidebar.projectGroup.confirmations.cancel"),
       destructive: true,
@@ -122,41 +165,49 @@ export function ProjectGroupHeader({
       if (confirmed) onDelete();
       return null;
     });
-  }, [onDelete, t, title]);
+  }, [name, onDelete, parentName, t]);
+
+  const menu = useProjectGroupActionsMenu({
+    groupId,
+    canMoveUp,
+    canMoveDown,
+    onRename: openRename,
+    onCreateInside: openSubgroupDialog,
+    onMoveUp,
+    onMoveDown,
+    onMoveTo,
+    onDelete: handleDelete,
+  });
 
   return (
-    <View
-      style={styles.header}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={accessibilityState}
-        onPress={onToggle}
-        style={styles.titleButton}
-        testID={`sidebar-project-group-header-${testKey}`}
+    <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+      <View
+        style={styles.header}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
       >
-        {/* The slot is held open for Ungrouped so every heading's title starts on one rail; only
-          a named group puts a glyph in it. */}
-        <View style={styles.iconSlot}>
-          {isNamedGroup ? <ThemedLayers size={12} uniProps={foregroundMutedColorMapping} /> : null}
-        </View>
-        <Text
-          style={isNamedGroup ? styles.title : styles.titleRemainder}
-          numberOfLines={1}
-          testID={`sidebar-project-group-title-${testKey}`}
+        <ContextMenuTrigger
+          accessibilityRole="button"
+          accessibilityState={accessibilityState}
+          onPress={onToggle}
+          style={styles.titleButton}
+          testID={`sidebar-project-group-header-${groupId}`}
         >
-          {title}
-        </Text>
-        {isNamedGroup ? (
-          <Text style={styles.count} testID={`sidebar-project-group-count-${testKey}`}>
+          <View style={styles.iconSlot}>
+            <ThemedLayers size={12} uniProps={foregroundMutedColorMapping} />
+          </View>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            testID={`sidebar-project-group-title-${groupId}`}
+          >
+            {name}
+          </Text>
+          <Text style={styles.count} testID={`sidebar-project-group-count-${groupId}`}>
             {projectCount}
           </Text>
-        ) : null}
-        <Chevron size={12} uniProps={foregroundMutedColorMapping} />
-      </Pressable>
-      {groupId ? (
+          <HeaderChevron collapsed={collapsed} />
+        </ContextMenuTrigger>
         <View
           style={!kebab.showKebab && styles.menuHidden}
           pointerEvents={kebab.showKebab ? "auto" : "none"}
@@ -171,52 +222,42 @@ export function ProjectGroupHeader({
             >
               {renderKebabTriggerIcon}
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" width={200} sheetTitle={title}>
-              <DropdownMenuItem
-                leading={renameLeadingIcon}
-                onSelect={openRename}
-                testID={`sidebar-project-group-rename-${groupId}`}
-              >
-                {t("sidebar.projectGroup.actions.rename")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                leading={moveUpLeadingIcon}
-                disabled={!canMoveUp}
-                onSelect={onMoveUp}
-                testID={`sidebar-project-group-move-up-${groupId}`}
-              >
-                {t("sidebar.projectGroup.actions.moveUp")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                leading={moveDownLeadingIcon}
-                disabled={!canMoveDown}
-                onSelect={onMoveDown}
-                testID={`sidebar-project-group-move-down-${groupId}`}
-              >
-                {t("sidebar.projectGroup.actions.moveDown")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                leading={deleteLeadingIcon}
-                onSelect={handleDelete}
-                testID={`sidebar-project-group-delete-${groupId}`}
-              >
-                {t("sidebar.projectGroup.actions.delete")}
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" width={220} pages={menu.pages} sheetTitle={name}>
+              {menu.item}
             </DropdownMenuContent>
           </DropdownMenu>
         </View>
-      ) : null}
+      </View>
+      <ContextMenuContent
+        align="start"
+        width={220}
+        pages={menu.pages}
+        sheetTitle={name}
+        testID={`sidebar-project-group-context-menu-${groupId}`}
+      >
+        {menu.item}
+      </ContextMenuContent>
       <AdaptiveRenameModal
         visible={isRenaming}
         title={t("sidebar.projectGroup.rename.title")}
-        initialValue={name ?? ""}
+        initialValue={name}
         placeholder={t("sidebar.projectGroup.namePlaceholder")}
         submitLabel={t("sidebar.projectGroup.rename.submit")}
         onClose={closeRename}
         onSubmit={onRename}
-        testID={`sidebar-project-group-rename-modal-${testKey}`}
+        testID={`sidebar-project-group-rename-modal-${groupId}`}
       />
-    </View>
+      <AdaptiveRenameModal
+        visible={isNamingSubgroup}
+        title={t("sidebar.projectGroup.new.insideTitle", { groupName: name })}
+        initialValue=""
+        placeholder={t("sidebar.projectGroup.namePlaceholder")}
+        submitLabel={t("sidebar.projectGroup.new.submit")}
+        onClose={closeSubgroupDialog}
+        onSubmit={onCreateInside}
+        testID={`sidebar-project-group-new-modal-${groupId}`}
+      />
+    </ContextMenu>
   );
 }
 

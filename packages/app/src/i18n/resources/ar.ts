@@ -1197,6 +1197,7 @@ export const ar: TranslationResources = {
     },
     projectGroup: {
       ungrouped: "غير مجمّع",
+      topLevel: "المستوى الأعلى",
       label: "مجموعة المشاريع",
       namePlaceholder: "اسم مجموعة المشاريع",
       actions: {
@@ -1205,10 +1206,13 @@ export const ar: TranslationResources = {
         rename: "إعادة تسمية",
         moveUp: "تحريك لأعلى",
         moveDown: "تحريك لأسفل",
+        moveTo: "نقل إلى",
+        createInside: "مجموعة مشاريع جديدة بداخلها",
         delete: "حذف مجموعة المشاريع",
       },
       new: {
         title: "مجموعة مشاريع جديدة",
+        insideTitle: 'مجموعة مشاريع جديدة في "{{groupName}}"',
         submit: "إنشاء",
       },
       rename: {
@@ -1217,7 +1221,10 @@ export const ar: TranslationResources = {
       },
       confirmations: {
         deleteTitle: "هل تريد حذف مجموعة المشاريع؟",
-        deleteMessage: 'ستنتقل المشاريع في "{{groupName}}" إلى غير مجمّع.',
+        deleteMessage:
+          'ستنتقل المشاريع في "{{groupName}}" إلى غير مجمّع، وستنتقل مجموعات المشاريع فيها إلى المستوى الأعلى.',
+        deleteNestedMessage:
+          'ستنتقل المشاريع ومجموعات المشاريع في "{{groupName}}" إلى "{{parentName}}".',
         deleteConfirm: "حذف",
         cancel: "إلغاء",
       },
