@@ -30,6 +30,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { SortableInlineList } from "@/components/sortable-inline-list";
+import { useAgentDragSource } from "@/agents/move-to-workspace/agent-drag";
 import type {
   DraggableListDragHandleProps,
   DraggableRenderItemInfo,
@@ -749,6 +750,21 @@ function TabChip({
   const middleClickRef = useMiddleClickClose(
     useCallback(() => void onCloseTab(tab.tabId), [onCloseTab, tab.tabId]),
   );
+  // A chat can be carried to a workspace row in the sidebar. Only agent tabs move; a terminal or a
+  // browser tab has no workspace to belong to.
+  const { dragRef } = useAgentDragSource({
+    agentId: tab.target.kind === "agent" ? tab.target.agentId : "",
+    serverId,
+  });
+  // useMiddleClickClose hands back a ref object, the drag source a callback ref; one node has to
+  // reach both.
+  const tabFrameRef = useCallback(
+    (node: unknown) => {
+      (middleClickRef as unknown as { current: unknown }).current = node;
+      if (tab.target.kind === "agent") (dragRef as unknown as (value: unknown) => void)?.(node);
+    },
+    [dragRef, middleClickRef, tab.target.kind],
+  );
   const isCompact = useIsCompactFormFactor();
   const [hovered, setHovered] = useState(false);
   // An active tab in a pane that does not have focus stays legible but quiet: it keeps the fill of
@@ -831,7 +847,7 @@ function TabChip({
 
   return (
     <View
-      ref={middleClickRef}
+      ref={tabFrameRef}
       style={styles.tabHoverFrame}
       onPointerEnter={handleTabPointerEnter}
       onPointerLeave={handleTabPointerLeave}
