@@ -93,6 +93,14 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { SidebarStatusWorkspaceList } from "@/components/sidebar/sidebar-status-list";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
+import type { SidebarProjectGroupView } from "@/components/sidebar/sidebar-projection";
+import { ProjectGroupHeader, UngroupedHeader } from "@/components/sidebar/project-group-header";
+import { ProjectGroupDragProvider } from "@/components/sidebar/project-group-drag";
+import {
+  useProjectGroupMenu,
+  type ProjectGroupMenu,
+} from "@/components/sidebar/project-group-menu";
+import { AdaptiveRenameModal } from "@/components/rename-modal";
 import {
   SidebarWorkspaceContextMenu,
   SidebarWorkspaceMenu,
@@ -224,6 +232,9 @@ interface SidebarWorkspaceListProps {
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectViewKey: string) => void;
+  projectGroupViews: SidebarProjectGroupView[];
+  collapsedProjectGroupKeys: ReadonlySet<string>;
+  onToggleProjectGroupCollapsed: (projectGroupKey: string) => void;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   groupMode: SidebarGroupMode;
   isRefreshing?: boolean;
@@ -259,6 +270,7 @@ interface ProjectHeaderRowProps {
   isArchiving?: boolean;
   menuController: ReturnType<typeof useContextMenu> | null;
   onRemoveProject?: () => void;
+  onCreateGroup: () => void;
   removeProjectStatus?: "idle" | "pending";
   dragHandleProps?: DraggableListDragHandleProps;
 }
@@ -414,6 +426,7 @@ function ProjectRowTrailingActions({
   isProjectActive,
   onBeginWorkspaceSetup,
   onRemoveProject,
+  groupMenu,
   removeProjectStatus,
 }: {
   projectViewKey: string;
@@ -426,6 +439,7 @@ function ProjectRowTrailingActions({
   isProjectActive: boolean;
   onBeginWorkspaceSetup: () => void;
   onRemoveProject?: () => void;
+  groupMenu: ProjectGroupMenu;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
   const actionsVisible = isHovered || platformIsNative || isMobileBreakpoint;
@@ -450,6 +464,7 @@ function ProjectRowTrailingActions({
             settingsTarget={settingsTarget}
             projectPath={projectPath}
             onRemoveProject={onRemoveProject}
+            groupMenu={groupMenu}
             removeProjectStatus={removeProjectStatus}
           />
         </View>
@@ -478,12 +493,14 @@ function ProjectKebabMenu({
   settingsTarget,
   projectPath,
   onRemoveProject,
+  groupMenu,
   removeProjectStatus,
 }: {
   projectViewKey: string;
   settingsTarget: { serverId: string; projectId: string } | null;
   projectPath: string;
   onRemoveProject: () => void;
+  groupMenu: ProjectGroupMenu;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
   const { t } = useTranslation();
@@ -498,13 +515,19 @@ function ProjectKebabMenu({
       >
         {renderKebabTriggerIcon}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" width={220} sheetTitle={t("sidebar.project.actions.menu")}>
+      <DropdownMenuContent
+        align="end"
+        width={220}
+        pages={groupMenu.pages}
+        sheetTitle={t("sidebar.project.actions.menu")}
+      >
         <ProjectMenuItems
           surface="dropdown"
           projectViewKey={projectViewKey}
           settingsTarget={settingsTarget}
           projectPath={projectPath}
           onRemoveProject={onRemoveProject}
+          groupItem={groupMenu.item}
           removeProjectStatus={removeProjectStatus}
         />
       </DropdownMenuContent>
@@ -533,6 +556,7 @@ function ProjectMenuItems({
   settingsTarget,
   projectPath,
   onRemoveProject,
+  groupItem,
   removeProjectStatus,
 }: {
   surface: ProjectMenuSurface;
@@ -540,6 +564,8 @@ function ProjectMenuItems({
   settingsTarget: { serverId: string; projectId: string } | null;
   projectPath: string;
   onRemoveProject: () => void;
+  /** The project-group submenu's trigger row; its page is registered on the surface above. */
+  groupItem: ReactElement;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
   const { t } = useTranslation();
@@ -562,6 +588,7 @@ function ProjectMenuItems({
 
   return (
     <>
+      {groupItem}
       {settingsTarget ? (
         <ProjectMenuItem
           surface={surface}
@@ -868,9 +895,15 @@ function ProjectHeaderRow({
   isArchiving = false,
   menuController,
   onRemoveProject,
+  onCreateGroup,
   removeProjectStatus = "idle",
   dragHandleProps,
 }: ProjectHeaderRowProps) {
+  // One menu model for the kebab and the row's context menu, so the two surfaces cannot drift.
+  const groupMenu = useProjectGroupMenu({
+    projectViewKey: project.viewKey,
+    onCreateGroup,
+  });
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -973,6 +1006,7 @@ function ProjectHeaderRow({
         isProjectActive={isProjectActive}
         onBeginWorkspaceSetup={handleBeginWorkspaceSetup}
         onRemoveProject={onRemoveProject}
+        groupMenu={groupMenu}
         removeProjectStatus={removeProjectStatus}
       />
       {showShortcutBadge && shortcutNumber !== null ? (
@@ -1034,6 +1068,7 @@ function ProjectHeaderRow({
       <ContextMenuContent
         align="start"
         width={220}
+        pages={groupMenu.pages}
         testID={`sidebar-project-context-menu-${project.viewKey}`}
       >
         <ProjectMenuItems
@@ -1042,6 +1077,7 @@ function ProjectHeaderRow({
           settingsTarget={settingsTarget}
           projectPath={projectPath}
           onRemoveProject={onRemoveProject}
+          groupItem={groupMenu.item}
           removeProjectStatus={removeProjectStatus}
         />
       </ContextMenuContent>
@@ -1772,6 +1808,21 @@ function ProjectBlock({
     onToggleCollapsed(project.viewKey);
   }, [onToggleCollapsed, project.viewKey]);
 
+  const createProjectGroup = useSidebarOrderStore((state) => state.createProjectGroup);
+  const moveProjectToGroup = useSidebarOrderStore((state) => state.moveProjectToGroup);
+  const [isNamingGroup, setIsNamingGroup] = useState(false);
+  const openGroupDialog = useCallback(() => setIsNamingGroup(true), []);
+  const closeGroupDialog = useCallback(() => setIsNamingGroup(false), []);
+  // Creating a project group from a project row is one gesture: the project lands in what it named.
+  const handleCreateGroup = useCallback(
+    (name: string) => {
+      const groupId = createProjectGroup(name, null);
+      if (!groupId) return;
+      moveProjectToGroup(project.viewKey, groupId);
+    },
+    [createProjectGroup, moveProjectToGroup, project.viewKey],
+  );
+
   let projectChildren = null;
   if (!collapsed) {
     if (project.workspaces.length > 0) {
@@ -1837,11 +1888,22 @@ function ProjectBlock({
         isArchiving={isRemovingProject}
         menuController={null}
         onRemoveProject={handleRemoveProject}
+        onCreateGroup={openGroupDialog}
         removeProjectStatus={isRemovingProject ? "pending" : "idle"}
         dragHandleProps={dragHandleProps}
       />
 
       {projectChildren}
+      <AdaptiveRenameModal
+        visible={isNamingGroup}
+        title={t("sidebar.projectGroup.new.title")}
+        initialValue=""
+        placeholder={t("sidebar.projectGroup.namePlaceholder")}
+        submitLabel={t("sidebar.projectGroup.new.submit")}
+        onClose={closeGroupDialog}
+        onSubmit={handleCreateGroup}
+        testID={`sidebar-project-group-new-modal-${project.viewKey}`}
+      />
     </View>
   );
 }
@@ -1906,6 +1968,204 @@ function areProjectBlockSelectionsEqual(
 
 const MemoProjectBlock = memo(ProjectBlock, areProjectBlockPropsEqual);
 
+/** What every project-group block in the tree renders its rows with. */
+interface ProjectGroupRows {
+  collapsedProjectGroupKeys: ReadonlySet<string>;
+  onToggleCollapsed: (projectGroupKey: string) => void;
+  onProjectReorder: (group: SidebarProjectGroupView, projects: SidebarProjectEntry[]) => void;
+  renderProject: (info: DraggableRenderItemInfo<SidebarProjectEntry>) => ReactElement;
+  activeWorkspaceSelection: ActiveWorkspaceSelection | null;
+  parentGestureRef?: MutableRefObject<GestureType | undefined>;
+  dragGestureHostActive?: boolean;
+}
+
+/**
+ * The projects directly in one group, as their own draggable list. A drag never crosses a heading
+ * — moving a project between groups is the row menu's job on every platform, because native list
+ * drag cannot hand an item to another list.
+ */
+function ProjectGroupProjectList({
+  group,
+  rows,
+}: {
+  group: SidebarProjectGroupView;
+  rows: ProjectGroupRows;
+}) {
+  const { onProjectReorder } = rows;
+  const handleDragEnd = useCallback(
+    (projects: SidebarProjectEntry[]) => onProjectReorder(group, projects),
+    [group, onProjectReorder],
+  );
+  if (group.projects.length === 0) return null;
+  return (
+    <DraggableList
+      testID={`sidebar-project-list-${group.collapseKey}`}
+      data={group.projects}
+      keyExtractor={projectViewKeyExtractor}
+      renderItem={rows.renderProject}
+      onDragEnd={handleDragEnd}
+      extraData={activeWorkspaceSelectionKey(rows.activeWorkspaceSelection)}
+      scrollEnabled={false}
+      useDragHandle
+      nestable={platformIsNative}
+      externalDndContext={!platformIsNative}
+      simultaneousGestureRef={rows.parentGestureRef}
+      gestureHostPresented={rows.dragGestureHostActive}
+      containerStyle={styles.projectListContainer}
+    />
+  );
+}
+
+/**
+ * One named project group: its heading, then — unless it is collapsed — its subgroups and then its
+ * own projects, all behind one spine. Subgroups nest the same block, so depth reads as spines
+ * within spines. Each subgroup keeps its own collapse, so reopening a parent shows its children as
+ * they were left.
+ */
+function ProjectGroupBlock({
+  group,
+  groupId,
+  groupName,
+  parentName,
+  canMoveUp,
+  canMoveDown,
+  rows,
+}: {
+  group: SidebarProjectGroupView;
+  groupId: string;
+  groupName: string;
+  parentName: string | null;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  rows: ProjectGroupRows;
+}) {
+  const renameProjectGroup = useSidebarOrderStore((state) => state.renameProjectGroup);
+  const createProjectGroup = useSidebarOrderStore((state) => state.createProjectGroup);
+  const shiftProjectGroup = useSidebarOrderStore((state) => state.shiftProjectGroup);
+  const moveProjectGroup = useSidebarOrderStore((state) => state.moveProjectGroup);
+  const deleteProjectGroup = useSidebarOrderStore((state) => state.deleteProjectGroup);
+  const { onToggleCollapsed } = rows;
+  const collapsed = rows.collapsedProjectGroupKeys.has(group.collapseKey);
+
+  const handleToggle = useCallback(
+    () => onToggleCollapsed(group.collapseKey),
+    [group.collapseKey, onToggleCollapsed],
+  );
+  const handleRename = useCallback(
+    (name: string) => renameProjectGroup(groupId, name),
+    [groupId, renameProjectGroup],
+  );
+  // A subgroup made inside a collapsed group would land out of sight, so its parent opens for it.
+  const handleCreateInside = useCallback(
+    (name: string) => {
+      if (!createProjectGroup(name, groupId)) return;
+      if (collapsed) onToggleCollapsed(group.collapseKey);
+    },
+    [collapsed, createProjectGroup, group.collapseKey, groupId, onToggleCollapsed],
+  );
+  const handleMoveUp = useCallback(
+    () => shiftProjectGroup(groupId, -1),
+    [groupId, shiftProjectGroup],
+  );
+  const handleMoveDown = useCallback(
+    () => shiftProjectGroup(groupId, 1),
+    [groupId, shiftProjectGroup],
+  );
+  const handleMoveTo = useCallback(
+    (parentId: string | null) => moveProjectGroup(groupId, parentId),
+    [groupId, moveProjectGroup],
+  );
+  const handleDelete = useCallback(
+    () => deleteProjectGroup(groupId),
+    [groupId, deleteProjectGroup],
+  );
+
+  const hasMembers = group.groups.length > 0 || group.projects.length > 0;
+
+  return (
+    <View style={styles.projectGroupBlock} testID={`sidebar-project-group-${group.collapseKey}`}>
+      <ProjectGroupHeader
+        groupId={groupId}
+        name={groupName}
+        parentName={parentName}
+        projectCount={group.projectCount}
+        collapsed={collapsed}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+        onToggle={handleToggle}
+        onRename={handleRename}
+        onCreateInside={handleCreateInside}
+        onMoveUp={handleMoveUp}
+        onMoveDown={handleMoveDown}
+        onMoveTo={handleMoveTo}
+        onDelete={handleDelete}
+      />
+      {collapsed || !hasMembers ? null : (
+        <View style={styles.projectGroupMembers}>
+          <ProjectGroupSiblings groups={group.groups} parentName={groupName} rows={rows} />
+          <ProjectGroupProjectList group={group} rows={rows} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** A run of sibling groups; Move up and Move down step within it. */
+function ProjectGroupSiblings({
+  groups,
+  parentName,
+  rows,
+}: {
+  groups: SidebarProjectGroupView[];
+  parentName: string | null;
+  rows: ProjectGroupRows;
+}) {
+  const named = groups.flatMap((group) =>
+    group.id === null || group.name === null ? [] : [{ group, id: group.id, name: group.name }],
+  );
+  return (
+    <>
+      {named.map((entry, index) => (
+        <ProjectGroupBlock
+          key={entry.id}
+          group={entry.group}
+          groupId={entry.id}
+          groupName={entry.name}
+          parentName={parentName}
+          canMoveUp={index > 0}
+          canMoveDown={index < named.length - 1}
+          rows={rows}
+        />
+      ))}
+    </>
+  );
+}
+
+/**
+ * The Ungrouped remainder: projects in no group, flush on the sidebar's own rail with no spine —
+ * exactly where every project sat before any group existed.
+ */
+function UngroupedBlock({
+  group,
+  rows,
+}: {
+  group: SidebarProjectGroupView;
+  rows: ProjectGroupRows;
+}) {
+  const { onToggleCollapsed } = rows;
+  const collapsed = rows.collapsedProjectGroupKeys.has(group.collapseKey);
+  const handleToggle = useCallback(
+    () => onToggleCollapsed(group.collapseKey),
+    [group.collapseKey, onToggleCollapsed],
+  );
+  return (
+    <View style={styles.projectGroupBlock} testID={`sidebar-project-group-${group.collapseKey}`}>
+      <UngroupedHeader collapsed={collapsed} onToggle={handleToggle} />
+      {collapsed ? null : <ProjectGroupProjectList group={group} rows={rows} />}
+    </View>
+  );
+}
+
 export function SidebarWorkspaceList({
   workspaceGroups,
   projectIconTargets,
@@ -1916,6 +2176,9 @@ export function SidebarWorkspaceList({
   workspaceEntriesByKey,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
+  projectGroupViews,
+  collapsedProjectGroupKeys,
+  onToggleProjectGroupCollapsed,
   shortcutIndexByWorkspaceKey,
   groupMode,
   isRefreshing: _isRefreshing = false,
@@ -2013,6 +2276,9 @@ export function SidebarWorkspaceList({
         projectIconByProjectViewKey={projectIconByProjectViewKey}
         collapsedProjectKeys={collapsedProjectKeys}
         onToggleProjectCollapsed={onToggleProjectCollapsed}
+        projectGroupViews={projectGroupViews}
+        collapsedProjectGroupKeys={collapsedProjectGroupKeys}
+        onToggleProjectGroupCollapsed={onToggleProjectGroupCollapsed}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
         onWorkspacePress={onWorkspacePress}
         onAddProject={onAddProject}
@@ -2109,6 +2375,9 @@ function ProjectModeList({
   projectIconByProjectViewKey,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
+  projectGroupViews,
+  collapsedProjectGroupKeys,
+  onToggleProjectGroupCollapsed,
   shortcutIndexByWorkspaceKey,
   onWorkspacePress,
   onAddProject,
@@ -2159,6 +2428,7 @@ function ProjectModeList({
   const setProjectOrder = useSidebarOrderStore((state) => state.setProjectOrder);
   const getWorkspaceOrder = useSidebarOrderStore((state) => state.getWorkspaceOrder);
   const setWorkspaceOrder = useSidebarOrderStore((state) => state.setWorkspaceOrder);
+  const setGroupProjectOrder = useSidebarOrderStore((state) => state.setGroupProjectOrder);
 
   const isWorkspaceRoute = useMemo(
     () => Boolean(pathname && parseHostWorkspaceRouteFromPathname(pathname)),
@@ -2278,6 +2548,18 @@ function ProjectModeList({
       );
     },
     [getWorkspaceOrder, setWorkspaceOrder],
+  );
+
+  const handleGroupProjectReorder = useCallback(
+    (group: SidebarProjectGroupView, reorderedProjects: SidebarProjectEntry[]) => {
+      handleProjectDragEnd(reorderedProjects);
+      if (!group.id) return;
+      setGroupProjectOrder(
+        group.id,
+        reorderedProjects.map((project) => project.viewKey),
+      );
+    },
+    [handleProjectDragEnd, setGroupProjectOrder],
   );
 
   const handleWorktreeCreated = useCallback((workspaceId: string) => {
@@ -2419,10 +2701,49 @@ function ProjectModeList({
     ],
   );
 
-  const projectBody =
-    projects.length === 0 ? (
+  // No project group means no headings at all: one flat list of projects, exactly as before. The
+  // Ungrouped heading only earns its row once there is something it is not part of.
+  const namedGroupCount = projectGroupViews.filter((group) => group.id !== null).length;
+  const moveProjectToGroup = useSidebarOrderStore((state) => state.moveProjectToGroup);
+  const flatProjectGroupViews = useMemo(() => {
+    const flat: SidebarProjectGroupView[] = [];
+    const visit = (views: SidebarProjectGroupView[]) => {
+      for (const view of views) {
+        flat.push(view);
+        visit(view.groups);
+      }
+    };
+    visit(projectGroupViews);
+    return flat;
+  }, [projectGroupViews]);
+  const ungroupedView = projectGroupViews.find((group) => group.id === null) ?? null;
+  const projectGroupRows = useMemo<ProjectGroupRows>(
+    () => ({
+      collapsedProjectGroupKeys,
+      onToggleCollapsed: onToggleProjectGroupCollapsed,
+      onProjectReorder: handleGroupProjectReorder,
+      renderProject,
+      activeWorkspaceSelection,
+      parentGestureRef,
+      dragGestureHostActive,
+    }),
+    [
+      collapsedProjectGroupKeys,
+      onToggleProjectGroupCollapsed,
+      handleGroupProjectReorder,
+      renderProject,
+      activeWorkspaceSelection,
+      parentGestureRef,
+      dragGestureHostActive,
+    ],
+  );
+  let projectBody: ReactElement;
+  if (projects.length === 0) {
+    projectBody = (
       <SidebarProjectEmptyState onAddProject={onAddProject} onImportSession={onImportSession} />
-    ) : (
+    );
+  } else if (namedGroupCount === 0) {
+    projectBody = (
       <DraggableList
         testID="sidebar-project-list"
         data={unpinnedProjects}
@@ -2438,6 +2759,24 @@ function ProjectModeList({
         containerStyle={styles.projectListContainer}
       />
     );
+  } else {
+    projectBody = (
+      <ProjectGroupDragProvider
+        groups={flatProjectGroupViews}
+        onMoveProject={moveProjectToGroup}
+        onReorder={handleGroupProjectReorder}
+      >
+        <View testID="sidebar-project-group-list">
+          <ProjectGroupSiblings
+            groups={projectGroupViews}
+            parentName={null}
+            rows={projectGroupRows}
+          />
+          {ungroupedView ? <UngroupedBlock group={ungroupedView} rows={projectGroupRows} /> : null}
+        </View>
+      </ProjectGroupDragProvider>
+    );
+  }
 
   const content = (
     <>
@@ -2527,6 +2866,21 @@ const styles = StyleSheet.create((theme) => ({
     // Schedules icon across the divider; their layout boxes have different insets.
     paddingTop: 2,
     paddingBottom: theme.spacing[4],
+  },
+  projectGroupBlock: {
+    marginTop: theme.spacing[1],
+  },
+  // The spine that binds a named group's projects to the heading above them. A heading scrolls
+  // away; the rule does not, so membership stays readable from any scroll position. Its left edge
+  // sits on the heading glyph's rail, and the indent is the new rail the rows below start on.
+  //
+  // Ungrouped gets neither: its projects sit flush on the sidebar's own rail, exactly where every
+  // project sat before any group existed, which is what makes "not in a group" visible too.
+  projectGroupMembers: {
+    marginLeft: theme.spacing[2],
+    paddingLeft: theme.spacing[1],
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.foregroundExtraMuted,
   },
   projectListContainer: {
     width: "100%",

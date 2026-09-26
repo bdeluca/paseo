@@ -1247,6 +1247,40 @@ export const es: TranslationResources = {
         description: "Añade un proyecto para empezar",
       },
     },
+    projectGroup: {
+      ungrouped: "Sin grupo",
+      topLevel: "Nivel superior",
+      label: "Grupo de proyectos",
+      namePlaceholder: "Nombre del grupo de proyectos",
+      actions: {
+        menu: "Acciones del grupo de proyectos",
+        create: "Nuevo grupo de proyectos",
+        rename: "Renombrar",
+        moveUp: "Mover arriba",
+        moveDown: "Mover abajo",
+        moveTo: "Mover a",
+        createInside: "Nuevo grupo de proyectos dentro",
+        delete: "Eliminar grupo de proyectos",
+      },
+      new: {
+        title: "Nuevo grupo de proyectos",
+        insideTitle: 'Nuevo grupo de proyectos en "{{groupName}}"',
+        submit: "Crear",
+      },
+      rename: {
+        title: "Renombrar grupo de proyectos",
+        submit: "Renombrar",
+      },
+      confirmations: {
+        deleteTitle: "¿Eliminar el grupo de proyectos?",
+        deleteMessage:
+          'Los proyectos de "{{groupName}}" pasarán a Sin grupo, y sus grupos de proyectos al nivel superior.',
+        deleteNestedMessage:
+          'Los proyectos y grupos de proyectos de "{{groupName}}" pasarán a "{{parentName}}".',
+        deleteConfirm: "Eliminar",
+        cancel: "Cancelar",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Servicio {{name}} en ejecución",
