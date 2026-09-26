@@ -27,6 +27,7 @@ import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
 import { Shortcut } from "@/components/ui/shortcut";
+import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HEADER_INNER_HEIGHT, useIsCompactFormFactor } from "@/constants/layout";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
@@ -42,6 +43,7 @@ import { RetainedPanelActivity } from "@/components/retained-panel";
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
 import type { SidebarProjectGroupView } from "@/components/sidebar/sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
+import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useHosts } from "@/runtime/host-runtime";
 import { usePanelStore } from "@/stores/panel-store";
@@ -822,11 +824,73 @@ function DesktopSidebar({
   );
 }
 
+/**
+ * Creates an empty top-level project group.
+ *
+ * The project kebab's own "New project group" names a group *and* puts that project in it, which
+ * only exists once a project is on screen to right-click. This is the way in that does not start
+ * from a project: the group appears empty, and projects join it from their Project group submenu.
+ */
+function NewProjectGroupButton() {
+  const { t } = useTranslation();
+  const { theme } = useUnistyles();
+  const createProjectGroup = useSidebarOrderStore((state) => state.createProjectGroup);
+  const [isNaming, setIsNaming] = useState(false);
+  const openDialog = useCallback(() => setIsNaming(true), []);
+  const closeDialog = useCallback(() => setIsNaming(false), []);
+  const handleSubmit = useCallback(
+    (name: string) => {
+      createProjectGroup(name, null);
+    },
+    [createProjectGroup],
+  );
+  const triggerStyle = useCallback(
+    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.workspacesSectionActionTrigger,
+      hovered && styles.workspacesSectionActionTriggerHovered,
+    ],
+    [],
+  );
+  const label = t("sidebar.projectGroup.actions.create");
+
+  return (
+    <>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={openDialog}
+            style={triggerStyle}
+            testID="sidebar-new-project-group"
+          >
+            <FolderPlus size={14} color={theme.colors.foregroundMuted} />
+          </Pressable>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="center" offset={8}>
+          <IconTooltipContent label={label} />
+        </TooltipContent>
+      </Tooltip>
+      <AdaptiveRenameModal
+        visible={isNaming}
+        title={t("sidebar.projectGroup.new.title")}
+        initialValue=""
+        placeholder={t("sidebar.projectGroup.namePlaceholder")}
+        submitLabel={t("sidebar.projectGroup.new.submit")}
+        onClose={closeDialog}
+        onSubmit={handleSubmit}
+        testID="sidebar-project-group-new-modal"
+      />
+    </>
+  );
+}
+
 function WorkspacesSectionHeader() {
   return (
     <View style={styles.workspacesSectionHeader}>
       <Text style={styles.workspacesSectionTitle}>Workspaces</Text>
       <View style={styles.workspacesSectionActions}>
+        <NewProjectGroupButton />
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <View>
@@ -868,6 +932,16 @@ const styles = StyleSheet.create((theme) => ({
   },
   sidebarHeaderGroupBelowChrome: {
     paddingTop: 0,
+  },
+  workspacesSectionActionTrigger: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.md,
+  },
+  workspacesSectionActionTriggerHovered: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
   },
   workspacesSectionHeader: {
     flexDirection: "row",
