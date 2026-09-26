@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import { test, expect, type Page } from "../support/fixtures";
 import { gotoAppShell } from "../support/helpers/app";
 import { projectEquivalenceViewKey } from "../support/helpers/project-view-key";
@@ -52,6 +53,26 @@ async function createGroupFromHeaderButton(page: Page, name: string) {
   const dialog = "sidebar-project-group-new-modal";
   await renameModalInput(page, dialog).fill(name);
   await renameModalSubmit(page, dialog).click();
+}
+
+/**
+ * Drags a project row onto a heading. dnd-kit's mouse sensor arms after 6px, so the press is
+ * followed by a nudge before the travel; without it the drop never starts and the test would pass
+ * for the wrong reason.
+ */
+async function dragProjectOntoHeading(page: Page, projectViewKey: string, heading: Locator) {
+  const row = projectRow(page, projectViewKey);
+  const rowBox = await row.boundingBox();
+  const headingBox = await heading.boundingBox();
+  if (!rowBox || !headingBox) throw new Error("Expected a visible project row and heading");
+
+  const from = { x: rowBox.x + rowBox.width / 2, y: rowBox.y + rowBox.height / 2 };
+  const to = { x: headingBox.x + headingBox.width / 2, y: headingBox.y + headingBox.height / 2 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x, from.y + 8);
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
 }
 
 /** A named group's id, read off its heading; ids are uuids the client mints. */
@@ -169,6 +190,45 @@ test.describe("Sidebar project groups", () => {
       await expect(groupHeader(page, "Clients")).toBeVisible({ timeout: 30_000 });
     } finally {
       await project.cleanup();
+    }
+  });
+
+  test("a project drags into a group and back out to Ungrouped", async ({ page }) => {
+    const grouped = await seedWorkspace({ repoPrefix: "project-groups-drag-a-" });
+    const dragged = await seedWorkspace({ repoPrefix: "project-groups-drag-b-" });
+
+    try {
+      const groupedKey = projectEquivalenceViewKey(grouped.projectKey);
+      const draggedKey = projectEquivalenceViewKey(dragged.projectKey);
+
+      await gotoAppShell(page);
+      await waitForSidebarHydration(page);
+      await expect(projectRow(page, groupedKey)).toBeVisible({ timeout: 30_000 });
+      await expect(projectRow(page, draggedKey)).toBeVisible({ timeout: 30_000 });
+
+      await createGroupFromProject(page, groupedKey, "Products");
+      const groupId = await groupIdByName(page, "Products");
+      const ungrouped = page.getByTestId("sidebar-project-group-ungrouped");
+      await expect(ungrouped.getByTestId(`sidebar-project-row-${draggedKey}`)).toBeVisible();
+
+      await dragProjectOntoHeading(page, draggedKey, groupHeader(page, "Products"));
+      await expect(
+        groupBlock(page, groupId).getByTestId(`sidebar-project-row-${draggedKey}`),
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(ungrouped.getByTestId(`sidebar-project-row-${draggedKey}`)).toHaveCount(0);
+
+      // Ungrouped takes rows back, so a drop into a group is not a one-way door.
+      await dragProjectOntoHeading(
+        page,
+        draggedKey,
+        page.getByTestId("sidebar-project-group-header-ungrouped"),
+      );
+      await expect(ungrouped.getByTestId(`sidebar-project-row-${draggedKey}`)).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      await grouped.cleanup();
+      await dragged.cleanup();
     }
   });
 

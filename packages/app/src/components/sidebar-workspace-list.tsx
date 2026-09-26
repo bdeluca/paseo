@@ -93,6 +93,7 @@ import { SidebarStatusWorkspaceList } from "@/components/sidebar/sidebar-status-
 import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels";
 import type { SidebarProjectGroupView } from "@/components/sidebar/sidebar-projection";
 import { ProjectGroupHeader, UngroupedHeader } from "@/components/sidebar/project-group-header";
+import { ProjectGroupDragProvider } from "@/components/sidebar/project-group-drag";
 import {
   useProjectGroupMenu,
   type ProjectGroupMenu,
@@ -1982,6 +1983,7 @@ function ProjectGroupProjectList({
       scrollEnabled={false}
       useDragHandle
       nestable={platformIsNative}
+      externalDndContext={!platformIsNative}
       simultaneousGestureRef={rows.parentGestureRef}
       gestureHostPresented={rows.dragGestureHostActive}
       containerStyle={styles.projectListContainer}
@@ -2677,6 +2679,18 @@ function ProjectModeList({
   // No project group means no headings at all: one flat list of projects, exactly as before. The
   // Ungrouped heading only earns its row once there is something it is not part of.
   const namedGroupCount = projectGroupViews.filter((group) => group.id !== null).length;
+  const moveProjectToGroup = useSidebarOrderStore((state) => state.moveProjectToGroup);
+  const flatProjectGroupViews = useMemo(() => {
+    const flat: SidebarProjectGroupView[] = [];
+    const visit = (views: SidebarProjectGroupView[]) => {
+      for (const view of views) {
+        flat.push(view);
+        visit(view.groups);
+      }
+    };
+    visit(projectGroupViews);
+    return flat;
+  }, [projectGroupViews]);
   const ungroupedView = projectGroupViews.find((group) => group.id === null) ?? null;
   const projectGroupRows = useMemo<ProjectGroupRows>(
     () => ({
@@ -2722,14 +2736,20 @@ function ProjectModeList({
     );
   } else {
     projectBody = (
-      <View testID="sidebar-project-group-list">
-        <ProjectGroupSiblings
-          groups={projectGroupViews}
-          parentName={null}
-          rows={projectGroupRows}
-        />
-        {ungroupedView ? <UngroupedBlock group={ungroupedView} rows={projectGroupRows} /> : null}
-      </View>
+      <ProjectGroupDragProvider
+        groups={flatProjectGroupViews}
+        onMoveProject={moveProjectToGroup}
+        onReorder={handleGroupProjectReorder}
+      >
+        <View testID="sidebar-project-group-list">
+          <ProjectGroupSiblings
+            groups={projectGroupViews}
+            parentName={null}
+            rows={projectGroupRows}
+          />
+          {ungroupedView ? <UngroupedBlock group={ungroupedView} rows={projectGroupRows} /> : null}
+        </View>
+      </ProjectGroupDragProvider>
     );
   }
 

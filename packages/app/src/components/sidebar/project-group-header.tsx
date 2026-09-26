@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useProjectGroupDropTarget } from "@/components/sidebar/project-group-drag";
 import { ChevronDown, ChevronRight, Layers, MoreVertical } from "lucide-react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -62,8 +63,9 @@ export function UngroupedHeader({
 }) {
   const { t } = useTranslation();
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
+  const { dropRef, isOver } = useProjectGroupDropTarget(null);
   return (
-    <View style={styles.header}>
+    <View ref={dropRef} style={[styles.header, isOver && styles.headerDropTarget]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={accessibilityState}
@@ -140,6 +142,7 @@ export function ProjectGroupHeader({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const kebab = useOpenKebabMenuVisibility(isHovered || isNative || isCompact);
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
+  const { dropRef, isOver } = useProjectGroupDropTarget(groupId);
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
@@ -182,7 +185,8 @@ export function ProjectGroupHeader({
   return (
     <ContextMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
       <View
-        style={styles.header}
+        ref={dropRef}
+        style={[styles.header, isOver && styles.headerDropTarget]}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
       >
@@ -262,6 +266,10 @@ export function ProjectGroupHeader({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  headerDropTarget: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+    borderRadius: theme.borderRadius.md,
+  },
   header: {
     minHeight: 36,
     flexDirection: "row",
