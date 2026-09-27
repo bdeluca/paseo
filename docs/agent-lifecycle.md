@@ -96,6 +96,24 @@ Import is not a move. Restoring a provider session Paseo already owns returns th
 workspace: the `workspaceId` on `import_agent_request` places a session the daemon has never seen,
 and applying it to a known record re-homed agents away from their own subagent trees.
 
+The app offers the move from an agent tab's menu — desktop context menu and compact tab switcher —
+built once in `workspace-tab-menu.ts` so the two surfaces cannot drift. The picker states how many
+subagents come along before the target is chosen, rather than confirming after it: the count is what
+a user needs while deciding, not after. `packages/app/src/agents/move-to-workspace/` owns the picker
+and the round-trip, and the item disappears when the host does not advertise `agentWorkspaceMove`.
+
+Dragging an agent onto a sidebar workspace row is not possible today, and the obstacle is structural
+rather than missing wiring. There is no agent row in the sidebar — it renders projects and
+workspaces only — so the draggable representation of an agent is its tab. Tab drag lives in the
+`DndContext` that `split-container.tsx` mounts around the workspace shell, with a two-member payload
+union (`workspace-tab`, `split-pane-drop`) that is about pane layout. The sidebar's rows are
+reorder-only sortables inside a `DndContext` per `DraggableList`, and `LeftSidebar` is mounted from
+`app/_layout.tsx`, above the router and outside the workspace screen entirely. A dnd-kit droppable
+only registers with its nearest provider, so a tab can never resolve a sidebar row as its drop
+target until one provider wraps both and every sidebar list becomes an external-context consumer.
+dnd-kit is also web-only here; the native sortable is inert, so the gesture could not ship to
+phones. Cost that refactor deliberately before starting it.
+
 `notifyOnFinish` defaults to `true` for agent-scoped creation and background prompt follow-ups because most delegated work needs to report back to the creating agent. Set it to `false` only for truly fire-and-forget agents or prompts.
 Permission requests are notification checkpoints, not the end of that subscription. The caller is notified again after a permission response when the child finishes, errors, or requests another permission.
 The permission notification includes the normalized request plus the child and request IDs, so the caller can inspect it and respond without fetching agent status.

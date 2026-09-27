@@ -281,6 +281,21 @@ export const en = {
       clearSearch: "Clear search",
     },
   },
+  agents: {
+    moveToWorkspace: {
+      menuItem: "Move to workspace…",
+      title: "Move to workspace",
+      searchPlaceholder: "Search workspaces",
+      subtitle: "{{name}} keeps running where it is; only its owning workspace changes.",
+      carriesOne: "{{name}} moves with 1 subagent.",
+      carriesMany: "{{name}} moves with {{count}} subagents.",
+      empty: "No other workspace to move to.",
+      noMatches: "No workspace matches that search.",
+      error: "Could not move the agent",
+      disconnected: "Host is disconnected.",
+      moved: "Moved to {{workspace}}",
+    },
+  },
   agentList: {
     fallbackTitle: "New session",
     dateSections: {

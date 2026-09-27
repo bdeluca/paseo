@@ -56,6 +56,95 @@ describe("buildWorkspaceTabMenuEntries", () => {
     ]);
   });
 
+  it("offers the move action on an agent tab when the host can move agents", () => {
+    const onMoveAgentToWorkspace = vi.fn();
+
+    const entries = buildWorkspaceTabMenuEntries({
+      surface: "desktop",
+      tab: createAgentTab(),
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-agent_123",
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onCopyTerminalId: vi.fn(),
+      onCopyFilePath: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onRenameTab: vi.fn(),
+      onMoveAgentToWorkspace,
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    });
+
+    const move = entries.find(
+      (entry) => entry.kind === "item" && entry.key === "move-to-workspace",
+    );
+    expect(move).toMatchObject({
+      kind: "item",
+      label: "Move to workspace…",
+      testID: "workspace-tab-context-agent_123-move-to-workspace",
+    });
+    if (move?.kind !== "item") throw new Error("expected a menu item");
+    move.onSelect();
+    expect(onMoveAgentToWorkspace).toHaveBeenCalledWith("agent-123");
+  });
+
+  it("leaves the move action out when the host cannot move agents", () => {
+    const entries = buildWorkspaceTabMenuEntries({
+      surface: "desktop",
+      tab: createAgentTab(),
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-agent_123",
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onCopyTerminalId: vi.fn(),
+      onCopyFilePath: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onRenameTab: vi.fn(),
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    });
+
+    expect(
+      entries.some((entry) => entry.kind === "item" && entry.key === "move-to-workspace"),
+    ).toBe(false);
+  });
+
+  it("leaves the move action out on a terminal tab, which has no agent to move", () => {
+    const entries = buildWorkspaceTabMenuEntries({
+      surface: "desktop",
+      tab: {
+        key: "terminal_1",
+        tabId: "terminal_1",
+        kind: "terminal",
+        target: { kind: "terminal", terminalId: "terminal-1" },
+      },
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-terminal_1",
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onCopyTerminalId: vi.fn(),
+      onCopyFilePath: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onRenameTab: vi.fn(),
+      onMoveAgentToWorkspace: vi.fn(),
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    });
+
+    expect(
+      entries.some((entry) => entry.kind === "item" && entry.key === "move-to-workspace"),
+    ).toBe(false);
+  });
+
   it("uses stacked ordering labels for mobile menus", () => {
     const entries = buildWorkspaceTabMenuEntries({
       surface: "mobile",
