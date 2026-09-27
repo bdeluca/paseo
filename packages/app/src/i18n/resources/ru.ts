@@ -1229,6 +1229,40 @@ export const ru: TranslationResources = {
         description: "Добавьте проект, чтобы начать работу",
       },
     },
+    projectGroup: {
+      ungrouped: "Без группы",
+      topLevel: "Верхний уровень",
+      label: "Группа проектов",
+      namePlaceholder: "Название группы проектов",
+      actions: {
+        menu: "Действия группы проектов",
+        create: "Новая группа проектов",
+        rename: "Переименовать",
+        moveUp: "Переместить вверх",
+        moveDown: "Переместить вниз",
+        moveTo: "Переместить в",
+        createInside: "Новая группа проектов внутри",
+        delete: "Удалить группу проектов",
+      },
+      new: {
+        title: "Новая группа проектов",
+        insideTitle: "Новая группа проектов в «{{groupName}}»",
+        submit: "Создать",
+      },
+      rename: {
+        title: "Переименовать группу проектов",
+        submit: "Переименовать",
+      },
+      confirmations: {
+        deleteTitle: "Удалить группу проектов?",
+        deleteMessage:
+          "Проекты из «{{groupName}}» перейдут в «Без группы», а её группы проектов — на верхний уровень.",
+        deleteNestedMessage:
+          "Проекты и группы проектов из «{{groupName}}» перейдут в «{{parentName}}».",
+        deleteConfirm: "Удалить",
+        cancel: "Отмена",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Сервис {{name}} запущен",

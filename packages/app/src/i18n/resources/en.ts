@@ -1218,6 +1218,40 @@ export const en = {
         description: "Add a project to get started",
       },
     },
+    projectGroup: {
+      ungrouped: "Ungrouped",
+      topLevel: "Top level",
+      label: "Project group",
+      namePlaceholder: "Project group name",
+      actions: {
+        menu: "Project group actions",
+        create: "New project group",
+        rename: "Rename",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        moveTo: "Move to",
+        createInside: "New project group inside",
+        delete: "Delete project group",
+      },
+      new: {
+        title: "New project group",
+        insideTitle: 'New project group in "{{groupName}}"',
+        submit: "Create",
+      },
+      rename: {
+        title: "Rename project group",
+        submit: "Rename",
+      },
+      confirmations: {
+        deleteTitle: "Delete project group?",
+        deleteMessage:
+          'Projects in "{{groupName}}" move to Ungrouped, and its project groups move to the top level.',
+        deleteNestedMessage:
+          'Projects and project groups in "{{groupName}}" move to "{{parentName}}".',
+        deleteConfirm: "Delete",
+        cancel: "Cancel",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Service {{name}} running",

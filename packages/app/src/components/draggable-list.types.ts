@@ -53,6 +53,14 @@ export interface DraggableListProps<T> {
   gestureHostPresented?: boolean;
   /** Gesture ref(s) that the list should wait for before handling scroll */
   waitFor?: MutableRefObject<GestureType | undefined> | MutableRefObject<GestureType | undefined>[];
+  /**
+   * Web-only: render inside a DndContext the caller owns instead of one per list.
+   * A drag can only reach droppables registered in its own context, so lists that
+   * must exchange rows — the sidebar's project groups — share one context and the
+   * caller handles `onDragEnd` for all of them. `sortable-inline-list` calls the
+   * same escape by the same name.
+   */
+  externalDndContext?: boolean;
   /** Called when a drag gesture begins (before items are reordered) */
   onDragBegin?: () => void;
   /** Called immediately before invoking row `drag()` to lock outer owners. */
