@@ -44,7 +44,6 @@ interface SidebarOrderPersistedState {
   pinnedWorkspaceOrder?: string[];
   workspaceOrderByProject?: Record<string, string[]>;
   projectGroups?: StoredProjectGroup[];
-  projectCategories?: StoredProjectGroup[];
   projectOrderByServerId?: Record<string, string[]>;
   workspaceOrderByServerAndProject?: Record<string, string[]>;
 }
@@ -67,9 +66,6 @@ const SidebarOrderPersistedStateSchema = z.strictObject({
   // Optional, because a settings blob written before project groups existed has no such key and
   // must still restore the orders it does carry.
   projectGroups: z.array(SidebarProjectGroupSchema).optional(),
-  // COMPAT(projectGroups): the same list shipped as `projectCategories` in v0.8.1 before the
-  // feature took the user's own word. Read by the v2 migration below; remove after 2027-03-13.
-  projectCategories: z.array(SidebarProjectGroupSchema).optional(),
   projectOrderByServerId: StringArrayRecordSchema.optional(),
   workspaceOrderByServerAndProject: StringArrayRecordSchema.optional(),
 });
@@ -194,7 +190,7 @@ export function migrateSidebarOrderState(persistedState: unknown): {
     projectOrder,
     pinnedWorkspaceOrder: normalizeKeys(state.pinnedWorkspaceOrder ?? []),
     workspaceOrderByProject,
-    projectGroups: normalizeProjectGroups(state.projectGroups ?? state.projectCategories ?? []),
+    projectGroups: normalizeProjectGroups(state.projectGroups ?? []),
   };
 }
 
@@ -314,9 +310,9 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         workspaceOrderByProject: state.workspaceOrderByProject,
         projectGroups: state.projectGroups.map(toStoredProjectGroup),
       }),
-      // v2 is the rename from `projectCategories`; v3 adds `parentId` so groups can nest. Both
-      // bumps exist to make zustand run the migration, which normalizes the list: a flat v2 group
-      // comes through as a top-level group with its projects and order intact.
+      // v3 adds `parentId` so groups can nest. The bump exists to make zustand run the
+      // migration, which normalizes the list: a flat group written before nesting comes through
+      // as a top-level group with its projects and order intact.
       version: 3,
       migrate: migrateSidebarOrderState,
       // zustand only migrates on a version mismatch, so a current-version blob would otherwise

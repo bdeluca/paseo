@@ -51,27 +51,6 @@ describe("migrateSidebarOrderState", () => {
     ]);
   });
 
-  it("carries project groups written under the old projectCategories key", () => {
-    const migrated = migrateSidebarOrderState({
-      projectCategories: [{ id: "category_1", name: "Products", projectViewKeys: ["project-a"] }],
-    });
-
-    expect(migrated.projectGroups).toEqual([
-      { id: "category_1", name: "Products", parentId: null, projectViewKeys: ["project-a"] },
-    ]);
-  });
-
-  it("prefers the new key when a blob carries both", () => {
-    const migrated = migrateSidebarOrderState({
-      projectGroups: [{ id: "group_1", name: "Infrastructure", projectViewKeys: ["project-b"] }],
-      projectCategories: [{ id: "category_1", name: "Products", projectViewKeys: ["project-a"] }],
-    });
-
-    expect(migrated.projectGroups).toEqual([
-      { id: "group_1", name: "Infrastructure", parentId: null, projectViewKeys: ["project-b"] },
-    ]);
-  });
-
   it("keeps the orders a pre-groups settings blob carries", () => {
     const migrated = migrateSidebarOrderState({
       projectOrder: ["project-a"],

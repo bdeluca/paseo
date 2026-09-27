@@ -68,19 +68,6 @@ describe("sidebar collapsed projects transitions", () => {
     expect(Array.from(restored.collapsedProjectGroupKeys)).toEqual(["group_products"]);
   });
 
-  it("restores collapse keys written under the old project-category name", () => {
-    const restored = mergePersistedCollapsedProjects(
-      { collapsedProjectCategoryKeys: ["category_products", "uncategorized"] },
-      emptyState(),
-    );
-
-    // Group ids carry over untouched; the bucket key is a literal, so it takes the new spelling.
-    expect(Array.from(restored.collapsedProjectGroupKeys)).toEqual([
-      "category_products",
-      "ungrouped",
-    ]);
-  });
-
   it("leaves collapsed groups empty for a settings blob written before groups existed", () => {
     const restored = mergePersistedCollapsedProjects(
       { collapsedProjectKeys: ["project-a"], collapsedPinned: true },

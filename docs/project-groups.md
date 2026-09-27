@@ -104,11 +104,6 @@ A top-level group is written without `parentId`, which keeps a sidebar that nest
 exact shape the flat build's strict schema accepts; a nested `parentId` is a key that build does not
 know, and its strict schema discards the whole blob, orders included.
 
-The feature briefly shipped as "categories", so both stores read the old key when the new one is
-absent: the order store's v2 migration takes `projectCategories`, and the collapse store's merge
-takes `collapsedProjectCategoryKeys` and re-spells its one literal key (`uncategorized` →
-`ungrouped`). Both shims are `COMPAT(projectGroups)`-tagged with their removal date.
-
 Do not put a group id on a project record. Project membership is server-owned and stable, while a
 project group is empty-capable, order-bearing, and one person's opinion of their own sidebar.
 Making it replicate across devices needs a revisioned sidebar-layout document and a protocol

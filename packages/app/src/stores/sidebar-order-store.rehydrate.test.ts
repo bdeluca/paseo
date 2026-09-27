@@ -24,25 +24,22 @@ import { useSidebarOrderStore } from "./sidebar-order-store";
 
 const STORAGE_KEY = "sidebar-project-workspace-order";
 
-/**
- * What the first pass actually wrote: persist version 1, the list under `projectCategories`, and
- * ids minted as `category_<uuid>` (see `createCategoryId` in commit d8ca8a371).
- */
-function legacyCategoriesBlob() {
+/** A stored blob from before groups could nest: persist version 1, no `parentId` on any group. */
+function flatGroupsBlob() {
   return JSON.stringify({
     version: 1,
     state: {
       projectOrder: ["paseo", "system", "electricty"],
       pinnedWorkspaceOrder: ["host-a:one"],
       workspaceOrderByProject: { paseo: ["host-a:main", "host-a:feature"] },
-      projectCategories: [
+      projectGroups: [
         {
-          id: "category_11111111-1111-4111-8111-111111111111",
+          id: "group_11111111-1111-4111-8111-111111111111",
           name: "Products",
           projectViewKeys: ["paseo", "electricty"],
         },
         {
-          id: "category_22222222-2222-4222-8222-222222222222",
+          id: "group_22222222-2222-4222-8222-222222222222",
           name: "Infrastructure",
           projectViewKeys: ["system"],
         },
@@ -123,8 +120,8 @@ describe("sidebar order store rehydration", () => {
     });
   });
 
-  it("carries a real v1 categories blob into project groups without dropping anything else", async () => {
-    backing.entries.set(STORAGE_KEY, legacyCategoriesBlob());
+  it("carries a v1 blob into project groups without dropping anything else", async () => {
+    backing.entries.set(STORAGE_KEY, flatGroupsBlob());
 
     await rehydrate();
 
@@ -136,13 +133,13 @@ describe("sidebar order store rehydration", () => {
     });
     expect(state.projectGroups).toEqual([
       {
-        id: "category_11111111-1111-4111-8111-111111111111",
+        id: "group_11111111-1111-4111-8111-111111111111",
         name: "Products",
         parentId: null,
         projectViewKeys: ["paseo", "electricty"],
       },
       {
-        id: "category_22222222-2222-4222-8222-222222222222",
+        id: "group_22222222-2222-4222-8222-222222222222",
         name: "Infrastructure",
         parentId: null,
         projectViewKeys: ["system"],
@@ -151,7 +148,7 @@ describe("sidebar order store rehydration", () => {
   });
 
   it("rewrites the migrated blob under the new key at the current version", async () => {
-    backing.entries.set(STORAGE_KEY, legacyCategoriesBlob());
+    backing.entries.set(STORAGE_KEY, flatGroupsBlob());
 
     await rehydrate();
     // Any ordinary write after rehydration is what flushes the new shape to storage.
@@ -160,7 +157,6 @@ describe("sidebar order store rehydration", () => {
 
     const persisted = readPersisted();
     expect(persisted.version).toBe(3);
-    expect(persisted.state.projectCategories).toBeUndefined();
     expect(persisted.state.projectGroups).toHaveLength(2);
   });
 
@@ -279,25 +275,6 @@ describe("sidebar order store rehydration", () => {
     ]);
   });
 
-  it("prefers the new key when a v1 blob somehow carries both", async () => {
-    backing.entries.set(
-      STORAGE_KEY,
-      JSON.stringify({
-        version: 1,
-        state: {
-          projectGroups: [{ id: "group_a", name: "Kept", projectViewKeys: ["paseo"] }],
-          projectCategories: [{ id: "category_a", name: "Dropped", projectViewKeys: ["system"] }],
-        },
-      }),
-    );
-
-    await rehydrate();
-
-    expect(useSidebarOrderStore.getState().projectGroups).toEqual([
-      { id: "group_a", name: "Kept", parentId: null, projectViewKeys: ["paseo"] },
-    ]);
-  });
-
   it("keeps a group id nothing renders and a membership key no project answers to", async () => {
     backing.entries.set(
       STORAGE_KEY,
@@ -305,8 +282,8 @@ describe("sidebar order store rehydration", () => {
         version: 1,
         state: {
           projectOrder: ["paseo"],
-          projectCategories: [
-            { id: "category_a", name: "Offline hosts", projectViewKeys: ["gone", "never-existed"] },
+          projectGroups: [
+            { id: "group_a", name: "Offline hosts", projectViewKeys: ["gone", "never-existed"] },
           ],
         },
       }),
@@ -316,7 +293,7 @@ describe("sidebar order store rehydration", () => {
 
     expect(useSidebarOrderStore.getState().projectGroups).toEqual([
       {
-        id: "category_a",
+        id: "group_a",
         name: "Offline hosts",
         parentId: null,
         projectViewKeys: ["gone", "never-existed"],
@@ -336,7 +313,7 @@ describe("sidebar order store rehydration", () => {
         version: 1,
         state: {
           projectOrder: ["paseo", "system"],
-          projectCategories: [{ id: "category_a", name: "Products" }],
+          projectGroups: [{ id: "group_a", name: "Products" }],
         },
       }),
     );

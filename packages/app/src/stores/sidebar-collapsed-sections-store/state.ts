@@ -11,7 +11,6 @@ export interface PersistedCollapsedProjects {
   collapsedProjectKeys?: string[];
   collapsedWorkspaceGroupKeys?: string[];
   collapsedProjectGroupKeys?: string[];
-  collapsedProjectCategoryKeys?: string[];
   collapsedStatusGroupKeys?: string[];
   collapsedPinned?: boolean;
 }
@@ -21,9 +20,6 @@ export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProje
     collapsedProjectKeys: z.array(z.string()).optional(),
     collapsedWorkspaceGroupKeys: z.array(z.string()).optional(),
     collapsedProjectGroupKeys: z.array(z.string()).optional(),
-    // COMPAT(projectGroups): collapse keys written as `collapsedProjectCategoryKeys` in v0.8.1,
-    // before the feature took the user's own word. Remove after 2027-03-13.
-    collapsedProjectCategoryKeys: z.array(z.string()).optional(),
     // COMPAT(sidebarWorkspaceGroupCollapse): added in v0.4.0, remove after 2027-02-14.
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
     collapsedPinned: z.boolean().optional(),
@@ -118,9 +114,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
       Array.from(current.collapsedWorkspaceGroupKeys),
   );
   const restoredProjectGroups = deserializeCollapsedKeys(
-    persisted.collapsedProjectGroupKeys ??
-      persisted.collapsedProjectCategoryKeys?.map(renameLegacyUngroupedKey) ??
-      Array.from(current.collapsedProjectGroupKeys),
+    persisted.collapsedProjectGroupKeys ?? Array.from(current.collapsedProjectGroupKeys),
   );
   const restoredPinned = persisted.collapsedPinned ?? current.collapsedPinned;
   if (
@@ -144,11 +138,6 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
  * The ungrouped bucket is the one collapse key that is a literal rather than a group id, so the
  * rename moved its spelling too. Every other key in the list is an opaque id and carries over.
  */
-// COMPAT(projectGroups): added in v0.8.1, remove after 2027-03-13.
-function renameLegacyUngroupedKey(key: string): string {
-  return key === "uncategorized" ? "ungrouped" : key;
-}
-
 function deserializeCollapsedKeys(value: readonly string[]): Set<string> {
   return new Set(value);
 }
