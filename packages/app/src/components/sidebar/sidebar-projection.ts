@@ -221,3 +221,57 @@ function buildWorkspaceGroups(
       );
   }
 }
+
+export interface ProjectGroupDragPreview {
+  projectViewKey: string;
+  /** The group the row is hovering over; null is Ungrouped. */
+  groupId: string | null;
+}
+
+function withRecomputedCounts(view: SidebarProjectGroupView): SidebarProjectGroupView {
+  const groups = view.groups.map(withRecomputedCounts);
+  return {
+    ...view,
+    groups,
+    projectCount: view.projects.length + groups.reduce((total, g) => total + g.projectCount, 0),
+  };
+}
+
+/**
+ * Shows a dragged project where it would land, for as long as the pointer stays there.
+ *
+ * A dragged row belongs to the list it started in, so crossing into another group's list leaves
+ * nothing on screen: the row vanishes at the boundary and only reappears after the drop. Moving the
+ * entry into the hovered group for the duration of the drag makes the gesture show its own result.
+ */
+export function applyProjectGroupDragPreview(
+  views: SidebarProjectGroupView[],
+  preview: ProjectGroupDragPreview | null,
+): SidebarProjectGroupView[] {
+  if (!preview) return views;
+
+  let dragged: SidebarProjectEntry | undefined;
+  const removeDragged = (list: SidebarProjectGroupView[]): SidebarProjectGroupView[] =>
+    list.map((view) => {
+      const found = view.projects.find((project) => project.viewKey === preview.projectViewKey);
+      if (found) dragged = found;
+      return {
+        ...view,
+        projects: view.projects.filter((project) => project.viewKey !== preview.projectViewKey),
+        groups: removeDragged(view.groups),
+      };
+    });
+
+  const stripped = removeDragged(views);
+  if (!dragged) return views;
+  const entry = dragged;
+
+  const insertDragged = (list: SidebarProjectGroupView[]): SidebarProjectGroupView[] =>
+    list.map((view) =>
+      view.id === preview.groupId
+        ? { ...view, projects: [...view.projects, entry] }
+        : { ...view, groups: insertDragged(view.groups) },
+    );
+
+  return insertDragged(stripped).map(withRecomputedCounts);
+}
