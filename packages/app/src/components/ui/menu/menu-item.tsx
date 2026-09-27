@@ -241,6 +241,11 @@ export interface MenuItemProps {
   active?: boolean;
   leading?: ReactElement | null;
   trailing?: ReactElement | null;
+  /**
+   * Depth of this option in a tree-shaped list. Each level is one empty leading-slot column, so a
+   * child's leading icon lands on its parent's label rail. The check column stays outermost.
+   */
+  indentLevel?: number;
   /** @deprecated Use `status` instead */
   loading?: boolean;
   status?: ActionStatus;
@@ -251,6 +256,14 @@ export interface MenuItemProps {
   closeOnSelect?: boolean;
   testID?: string;
   tooltip?: string;
+}
+
+function indentColumns(indentLevel = 0): ReactElement[] {
+  const columns: ReactElement[] = [];
+  for (let level = 1; level <= indentLevel; level += 1) {
+    columns.push(<View key={`indent-${level}`} style={styles.leadingSlot} />);
+  }
+  return columns;
 }
 
 export function MenuItem({
@@ -265,6 +278,7 @@ export function MenuItem({
   active = false,
   leading,
   trailing,
+  indentLevel,
   loading,
   status,
   pendingLabel,
@@ -351,6 +365,7 @@ export function MenuItem({
           {selected ? <ThemedCheck size={16} uniProps={foregroundMapping} /> : null}
         </View>
       ) : null}
+      {indentColumns(indentLevel)}
       {leadingContent ? <View style={styles.leadingSlot}>{leadingContent}</View> : null}
       <View style={styles.itemContent}>
         <Text numberOfLines={1} style={itemTextStyle}>

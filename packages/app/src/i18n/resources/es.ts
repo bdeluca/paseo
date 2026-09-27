@@ -1233,6 +1233,7 @@ export const es: TranslationResources = {
     },
     projectGroup: {
       ungrouped: "Sin grupo",
+      topLevel: "Nivel superior",
       label: "Grupo de proyectos",
       namePlaceholder: "Nombre del grupo de proyectos",
       actions: {
@@ -1241,10 +1242,13 @@ export const es: TranslationResources = {
         rename: "Renombrar",
         moveUp: "Mover arriba",
         moveDown: "Mover abajo",
+        moveTo: "Mover a",
+        createInside: "Nuevo grupo de proyectos dentro",
         delete: "Eliminar grupo de proyectos",
       },
       new: {
         title: "Nuevo grupo de proyectos",
+        insideTitle: 'Nuevo grupo de proyectos en "{{groupName}}"',
         submit: "Crear",
       },
       rename: {
@@ -1253,7 +1257,10 @@ export const es: TranslationResources = {
       },
       confirmations: {
         deleteTitle: "¿Eliminar el grupo de proyectos?",
-        deleteMessage: 'Los proyectos de "{{groupName}}" pasarán a Sin grupo.',
+        deleteMessage:
+          'Los proyectos de "{{groupName}}" pasarán a Sin grupo, y sus grupos de proyectos al nivel superior.',
+        deleteNestedMessage:
+          'Los proyectos y grupos de proyectos de "{{groupName}}" pasarán a "{{parentName}}".',
         deleteConfirm: "Eliminar",
         cancel: "Cancelar",
       },

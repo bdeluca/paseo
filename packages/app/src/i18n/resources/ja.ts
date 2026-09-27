@@ -1211,6 +1211,7 @@ export const ja: TranslationResources = {
     },
     projectGroup: {
       ungrouped: "グループなし",
+      topLevel: "最上位",
       label: "プロジェクトグループ",
       namePlaceholder: "プロジェクトグループ名",
       actions: {
@@ -1219,10 +1220,13 @@ export const ja: TranslationResources = {
         rename: "名前を変更",
         moveUp: "上へ移動",
         moveDown: "下へ移動",
+        moveTo: "移動先",
+        createInside: "この中に新しいプロジェクトグループ",
         delete: "プロジェクトグループを削除",
       },
       new: {
         title: "新しいプロジェクトグループ",
+        insideTitle: '"{{groupName}}" に新しいプロジェクトグループ',
         submit: "作成",
       },
       rename: {
@@ -1231,7 +1235,10 @@ export const ja: TranslationResources = {
       },
       confirmations: {
         deleteTitle: "プロジェクトグループを削除しますか？",
-        deleteMessage: '"{{groupName}}" のプロジェクトはグループなしに移動します。',
+        deleteMessage:
+          '"{{groupName}}" のプロジェクトはグループなしに、プロジェクトグループは最上位に移動します。',
+        deleteNestedMessage:
+          '"{{groupName}}" のプロジェクトとプロジェクトグループは "{{parentName}}" に移動します。',
         deleteConfirm: "削除",
         cancel: "キャンセル",
       },

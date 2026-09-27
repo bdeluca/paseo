@@ -46,8 +46,8 @@ describe("migrateSidebarOrderState", () => {
     });
 
     expect(migrated.projectGroups).toEqual([
-      { id: "products", name: "Products", projectViewKeys: ["project-a"] },
-      { id: "infra", name: "Infrastructure", projectViewKeys: ["project-b"] },
+      { id: "products", name: "Products", parentId: null, projectViewKeys: ["project-a"] },
+      { id: "infra", name: "Infrastructure", parentId: null, projectViewKeys: ["project-b"] },
     ]);
   });
 
@@ -57,7 +57,7 @@ describe("migrateSidebarOrderState", () => {
     });
 
     expect(migrated.projectGroups).toEqual([
-      { id: "category_1", name: "Products", projectViewKeys: ["project-a"] },
+      { id: "category_1", name: "Products", parentId: null, projectViewKeys: ["project-a"] },
     ]);
   });
 
@@ -68,7 +68,7 @@ describe("migrateSidebarOrderState", () => {
     });
 
     expect(migrated.projectGroups).toEqual([
-      { id: "group_1", name: "Infrastructure", projectViewKeys: ["project-b"] },
+      { id: "group_1", name: "Infrastructure", parentId: null, projectViewKeys: ["project-b"] },
     ]);
   });
 

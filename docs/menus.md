@@ -129,6 +129,10 @@ same state, and showing both makes a chosen row compete with the row the pointer
 aligned whether ticked or not; otherwise it sits at the trailing edge and the leading slot is free
 for the option's icon.
 
+A tree-shaped option list sets `indentLevel` on each row. A level is one empty leading-slot column,
+so a child's icon lands on its parent's label rail; the check column stays outermost. The project
+group pickers are the example (`packages/app/src/components/sidebar/project-group-menu.tsx`).
+
 Give options icons; leave the root rows without them. The root is labels and their current values,
 and a column of icons there is decoration competing with the values you actually came to read.
 

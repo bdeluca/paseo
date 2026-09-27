@@ -4,6 +4,9 @@ import { persist } from "zustand/middleware";
 import { z } from "zod";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 import {
+  addProjectGroup,
+  canCreateProjectGroupIn,
+  moveProjectGroup,
   moveProjectToGroup,
   normalizeProjectGroups,
   removeProjectGroup,
@@ -11,6 +14,7 @@ import {
   reorderGroupProjectViewKeys,
   shiftProjectGroup,
   type SidebarProjectGroup,
+  type StoredProjectGroup,
 } from "./sidebar-project-groups";
 
 export type { SidebarProjectGroup } from "./sidebar-project-groups";
@@ -26,11 +30,12 @@ interface SidebarOrderStoreState {
   setPinnedWorkspaceOrder: (keys: string[]) => void;
   getWorkspaceOrder: (projectViewKey: string) => string[];
   setWorkspaceOrder: (projectViewKey: string, keys: string[]) => void;
-  createProjectGroup: (name: string) => string | null;
+  createProjectGroup: (name: string, parentId: string | null) => string | null;
   renameProjectGroup: (groupId: string, name: string) => void;
   shiftProjectGroup: (groupId: string, direction: -1 | 1) => void;
   setGroupProjectOrder: (groupId: string, projectViewKeys: string[]) => void;
   deleteProjectGroup: (groupId: string) => void;
+  moveProjectGroup: (groupId: string, parentId: string | null) => void;
   moveProjectToGroup: (projectViewKey: string, groupId: string | null) => void;
 }
 
@@ -38,8 +43,8 @@ interface SidebarOrderPersistedState {
   projectOrder?: string[];
   pinnedWorkspaceOrder?: string[];
   workspaceOrderByProject?: Record<string, string[]>;
-  projectGroups?: SidebarProjectGroup[];
-  projectCategories?: SidebarProjectGroup[];
+  projectGroups?: StoredProjectGroup[];
+  projectCategories?: StoredProjectGroup[];
   projectOrderByServerId?: Record<string, string[]>;
   workspaceOrderByServerAndProject?: Record<string, string[]>;
 }
@@ -48,6 +53,11 @@ const StringArrayRecordSchema = z.record(z.string(), z.array(z.string()));
 const SidebarProjectGroupSchema = z.strictObject({
   id: z.string(),
   name: z.string(),
+  // Optional, because a group written before project groups nested has none; it loads as a
+  // top-level group. A top-level group is also written without it, so a sidebar that nests
+  // nothing keeps the exact shape the flat build reads. `null` is the in-memory spelling of the
+  // top level, which `merge` hands back through this schema after `migrate` has run.
+  parentId: z.string().nullable().optional(),
   projectViewKeys: z.array(z.string()),
 });
 const SidebarOrderPersistedStateSchema = z.strictObject({
@@ -188,6 +198,11 @@ export function migrateSidebarOrderState(persistedState: unknown): {
   };
 }
 
+function toStoredProjectGroup(group: SidebarProjectGroup): StoredProjectGroup {
+  const { parentId, ...rest } = group;
+  return parentId === null ? rest : group;
+}
+
 function createGroupId(): string {
   const randomId =
     typeof globalThis.crypto?.randomUUID === "function"
@@ -226,17 +241,18 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
       },
       // Returns the new id so the caller that created a group can move a project into it in
       // the same gesture, which is how "New group" on a project row works.
-      createProjectGroup: (name) => {
+      createProjectGroup: (name, parentId) => {
         const groupName = name.trim();
         if (!groupName) return null;
         const group: SidebarProjectGroup = {
           id: createGroupId(),
           name: groupName,
+          parentId,
           projectViewKeys: [],
         };
-        set((state) => ({
-          projectGroups: normalizeProjectGroups([...state.projectGroups, group]),
-        }));
+        const { projectGroups } = get();
+        if (!canCreateProjectGroupIn(projectGroups, parentId)) return null;
+        set({ projectGroups: normalizeProjectGroups(addProjectGroup(projectGroups, group)) });
         return group.id;
       },
       renameProjectGroup: (groupId, name) => {
@@ -271,6 +287,14 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
           projectGroups: normalizeProjectGroups(removeProjectGroup(state.projectGroups, groupId)),
         }));
       },
+      moveProjectGroup: (groupId, parentId) => {
+        if (!groupId.trim()) return;
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(
+            moveProjectGroup(state.projectGroups, groupId, parentId),
+          ),
+        }));
+      },
       moveProjectToGroup: (projectViewKey, groupId) => {
         const scope = projectViewKey.trim();
         if (!scope) return;
@@ -288,12 +312,20 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         projectOrder: state.projectOrder,
         pinnedWorkspaceOrder: state.pinnedWorkspaceOrder,
         workspaceOrderByProject: state.workspaceOrderByProject,
-        projectGroups: state.projectGroups,
+        projectGroups: state.projectGroups.map(toStoredProjectGroup),
       }),
-      // v2 is the rename from `projectCategories`. The persisted shape is otherwise unchanged, so
-      // the bump exists only to make zustand run the migration that carries the old key over.
-      version: 2,
+      // v2 is the rename from `projectCategories`; v3 adds `parentId` so groups can nest. Both
+      // bumps exist to make zustand run the migration, which normalizes the list: a flat v2 group
+      // comes through as a top-level group with its projects and order intact.
+      version: 3,
       migrate: migrateSidebarOrderState,
+      // zustand only migrates on a version mismatch, so a current-version blob would otherwise
+      // load as stored. Every load goes through the same normalization instead: a group tree read
+      // from storage is held to the invariants the transitions keep (no loops, no missing parent).
+      merge: (persistedState, currentState) =>
+        persistedState === undefined
+          ? currentState
+          : { ...currentState, ...migrateSidebarOrderState(persistedState) },
     },
   ),
 );

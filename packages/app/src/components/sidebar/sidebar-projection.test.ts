@@ -4,7 +4,7 @@ import type {
   SidebarWorkspaceEntry,
   SidebarWorkspacePlacement,
 } from "@/hooks/use-sidebar-workspaces-list";
-import { buildSidebarProjection } from "./sidebar-projection";
+import { buildSidebarProjection, type SidebarProjectGroupView } from "./sidebar-projection";
 
 function makeWorkspace(
   id: string,
@@ -116,6 +116,57 @@ function toProjectViewKey(project: SidebarProjectEntry): string {
   return project.viewKey;
 }
 
+/**
+ * Four projects under a three-level tree, one workspace each (named after its project):
+ *
+ * work        [a]
+ *   clients   [b]
+ *     acme    [c]
+ * Ungrouped   [d]
+ */
+function nestedInput(collapsedProjectGroupKeys: string[] = []) {
+  const workspaces = ["a", "b", "c", "d"].map((key) => makeWorkspace(key, "done", [], key));
+  return {
+    ...projectionInput({ groupMode: "project" }),
+    projects: workspaces.map((workspace) =>
+      makeProject([workspace.placement], workspace.placement.projectViewKey),
+    ),
+    pinnedKeys: { pinnedWorkspaceKeys: [], pinnedAtByKey: {} },
+    workspaceEntriesByKey: new Map(
+      workspaces.map((workspace) => [workspace.entry.workspaceKey, workspace.entry]),
+    ),
+    projectNamesByViewKey: new Map(
+      workspaces.map((workspace) => [workspace.placement.projectViewKey, "P"]),
+    ),
+    projectGroups: [
+      { id: "work", name: "Work", parentId: null, projectViewKeys: ["a"] },
+      { id: "clients", name: "Clients", parentId: "work", projectViewKeys: ["b"] },
+      { id: "acme", name: "Acme", parentId: "clients", projectViewKeys: ["c"] },
+    ],
+    collapsedProjectGroupKeys: new Set(collapsedProjectGroupKeys),
+  };
+}
+
+interface GroupViewShape {
+  name: string | null;
+  projectCount: number;
+  projects: string[];
+  groups: GroupViewShape[];
+}
+
+function groupViewShape(group: SidebarProjectGroupView): GroupViewShape {
+  return {
+    name: group.name,
+    projectCount: group.projectCount,
+    projects: group.projects.map(toProjectViewKey),
+    groups: group.groups.map(groupViewShape),
+  };
+}
+
+function shortcutWorkspaceIds(projection: ReturnType<typeof buildSidebarProjection>): string[] {
+  return projection.shortcutModel.shortcutTargets.map((target) => target.workspaceId);
+}
+
 describe("buildSidebarProjection", () => {
   // The rule that outlived the bug it was written for: a project icon is fetched per project, so
   // whatever a mode groups by, the rows it produces can only reference projects already covered.
@@ -189,8 +240,8 @@ describe("buildSidebarProjection", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
       projectGroups: [
-        { id: "infra", name: "Infrastructure", projectViewKeys: ["other-project"] },
-        { id: "products", name: "Products", projectViewKeys: [] },
+        { id: "infra", name: "Infrastructure", parentId: null, projectViewKeys: ["other-project"] },
+        { id: "products", name: "Products", parentId: null, projectViewKeys: [] },
       ],
     });
 
@@ -212,7 +263,9 @@ describe("buildSidebarProjection", () => {
   it("does not number the rows inside a collapsed group", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
-      projectGroups: [{ id: "infra", name: "Infrastructure", projectViewKeys: ["other-project"] }],
+      projectGroups: [
+        { id: "infra", name: "Infrastructure", parentId: null, projectViewKeys: ["other-project"] },
+      ],
       collapsedProjectGroupKeys: new Set(["infra"]),
     });
 
@@ -224,18 +277,65 @@ describe("buildSidebarProjection", () => {
   it("keeps a group that claims a project the sidebar cannot see", () => {
     const projection = buildSidebarProjection({
       ...twoProjectInput("project"),
-      projectGroups: [{ id: "infra", name: "Infrastructure", projectViewKeys: ["offline"] }],
+      projectGroups: [
+        { id: "infra", name: "Infrastructure", parentId: null, projectViewKeys: ["offline"] },
+      ],
     });
 
     expect(projection.projectGroupViews[0]).toEqual({
       id: "infra",
       name: "Infrastructure",
       collapseKey: "infra",
+      groups: [],
       projects: [],
+      projectCount: 0,
     });
     expect(projection.projectGroupViews[1]?.projects.map((project) => project.viewKey)).toEqual([
       "project",
       "other-project",
+    ]);
+  });
+
+  it("nests subgroups before a group's own projects and counts the whole subtree", () => {
+    const projection = buildSidebarProjection(nestedInput());
+
+    expect(projection.projectGroupViews.map(groupViewShape)).toEqual([
+      {
+        name: "Work",
+        projectCount: 3,
+        projects: ["a"],
+        groups: [
+          {
+            name: "Clients",
+            projectCount: 2,
+            projects: ["b"],
+            groups: [{ name: "Acme", projectCount: 1, projects: ["c"], groups: [] }],
+          },
+        ],
+      },
+      { name: null, projectCount: 1, projects: ["d"], groups: [] },
+    ]);
+    // Shortcuts number rows in the order they render: deepest subgroup first, Ungrouped last.
+    expect(shortcutWorkspaceIds(projection)).toEqual(["c", "b", "a", "d"]);
+  });
+
+  it("hides a collapsed group's whole subtree from shortcuts", () => {
+    expect(shortcutWorkspaceIds(buildSidebarProjection(nestedInput(["clients"])))).toEqual([
+      "a",
+      "d",
+    ]);
+  });
+
+  it("keeps a subgroup's own collapse when its parent reopens", () => {
+    // Both collapsed, then the parent opened again: acme stays shut, clients' own row returns.
+    expect(shortcutWorkspaceIds(buildSidebarProjection(nestedInput(["acme"])))).toEqual([
+      "b",
+      "a",
+      "d",
+    ]);
+    expect(shortcutWorkspaceIds(buildSidebarProjection(nestedInput(["clients", "acme"])))).toEqual([
+      "a",
+      "d",
     ]);
   });
 
