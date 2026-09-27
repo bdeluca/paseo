@@ -274,6 +274,20 @@ paseo agent detach <id>        # Make a subagent top-level
 
 Detaching is an explicit lifecycle action, not a creation flag. The agent keeps running; only its relationship to its parent changes.
 
+## Moving an agent
+
+Change which workspace owns an agent:
+
+```bash
+paseo agent move <id> --workspace <id>        # Target workspace ID
+paseo agent move <id> --workspace "Fix z"     # Or its name, when it is unique
+paseo agent move <id> <id> --workspace <id>   # Several at once
+```
+
+The agent keeps its ID, history, title, labels, and working directory — only ownership changes, so a moved agent still runs where it always did. Subagents that shared its workspace move with it; a subagent already in another workspace stays there.
+
+Every ID is resolved before the first move, so a typo in the last argument leaves nothing moved.
+
 ## Daemon management
 
 Define an instance once, then start its saved configuration:
