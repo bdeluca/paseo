@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type Ref } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, type GestureResponderEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -7,6 +7,8 @@ import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list"
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import type { DraggableListDragHandleProps } from "@/components/draggable-list.types";
 import type { ShortcutKey } from "@/utils/format-shortcut";
+import { useAgentDropTarget } from "@/agents/move-to-workspace/agent-drag";
+import { useAgentWorkspaceMove } from "@/agents/move-to-workspace/use-agent-workspace-move";
 import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import { useToast } from "@/contexts/toast-context";
@@ -247,6 +249,27 @@ function WorkspaceRowBody({
     "aria-roledescription": _dragRoleDescription,
     ...dragAttributes
   } = dragHandleProps?.attributes ?? {};
+  // A chat dragged out of another workspace's tab strip lands here. The move is the same daemon
+  // round-trip the "Move to workspace…" picker makes.
+  const { move: moveAgentToWorkspace } = useAgentWorkspaceMove(workspace.serverId);
+  const handleDropAgent = useCallback(
+    (agentId: string) => moveAgentToWorkspace?.(agentId, workspace.workspaceId),
+    [moveAgentToWorkspace, workspace.workspaceId],
+  );
+  const { dropRef, isOver: isAgentDropTarget } = useAgentDropTarget({
+    serverId: workspace.serverId,
+    workspaceId: workspace.workspaceId,
+    onDropAgent: moveAgentToWorkspace ? handleDropAgent : undefined,
+  });
+  // One node, two owners: dnd-kit's reorder activator and the chat drop target.
+  const rowContainerRef = useCallback(
+    (node: unknown) => {
+      if (draggable)
+        (dragHandleProps?.setActivatorNodeRef as ((value: unknown) => void) | undefined)?.(node);
+      (dropRef as unknown as ((value: unknown) => void) | undefined)?.(node);
+    },
+    [draggable, dragHandleProps, dropRef],
+  );
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -285,10 +308,11 @@ function WorkspaceRowBody({
           <View
             {...(draggable ? dragAttributes : {})}
             {...(draggable ? dragHandleProps?.listeners : {})}
-            ref={
-              draggable ? (dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>) : undefined
-            }
-            style={styles.workspaceRowContainer}
+            ref={rowContainerRef}
+            style={[
+              styles.workspaceRowContainer,
+              isAgentDropTarget && styles.workspaceRowAgentDropTarget,
+            ]}
             {...hoverHandlers}
           >
             <SidebarWorkspaceContextMenu
@@ -481,6 +505,10 @@ function getWorkspaceRowStyle({
 export const MemoSidebarWorkspaceRow = memo(SidebarWorkspaceRow);
 
 const styles = StyleSheet.create((theme) => ({
+  workspaceRowAgentDropTarget: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+    borderRadius: theme.borderRadius.md,
+  },
   workspaceRowContainer: {
     position: "relative",
   },

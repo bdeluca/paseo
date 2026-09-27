@@ -1,3 +1,5 @@
+import { useAgentDropTarget } from "@/agents/move-to-workspace/agent-drag";
+import { useAgentWorkspaceMove } from "@/agents/move-to-workspace/use-agent-workspace-move";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   View,
@@ -1089,6 +1091,26 @@ function WorkspaceRowInner({
     "aria-roledescription": _dragRoleDescription,
     ...dragAttributes
   } = dragHandleProps?.attributes ?? {};
+  // A chat dragged out of a workspace's tab strip lands on this row; the move is the same daemon
+  // round-trip the "Move to workspace…" picker makes.
+  const { move: moveAgentToWorkspace } = useAgentWorkspaceMove(workspace.serverId);
+  const handleDropAgent = useCallback(
+    (agentId: string) => moveAgentToWorkspace?.(agentId, workspace.workspaceId),
+    [moveAgentToWorkspace, workspace.workspaceId],
+  );
+  const { dropRef, isOver: isAgentDropTarget } = useAgentDropTarget({
+    serverId: workspace.serverId,
+    workspaceId: workspace.workspaceId,
+    onDropAgent: moveAgentToWorkspace ? handleDropAgent : undefined,
+  });
+  // One node, two owners: dnd-kit's reorder activator and the chat drop target.
+  const rowContainerRef = useCallback(
+    (node: unknown) => {
+      (dragHandleProps?.setActivatorNodeRef as ((value: unknown) => void) | undefined)?.(node);
+      (dropRef as unknown as ((value: unknown) => void) | undefined)?.(node);
+    },
+    [dragHandleProps, dropRef],
+  );
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -1127,8 +1149,11 @@ function WorkspaceRowInner({
           <View
             {...dragAttributes}
             {...dragHandleProps?.listeners}
-            ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
-            style={styles.workspaceRowContainer}
+            ref={rowContainerRef}
+            style={[
+              styles.workspaceRowContainer,
+              isAgentDropTarget && styles.workspaceRowAgentDropTarget,
+            ]}
             {...hoverHandlers}
           >
             <SidebarWorkspaceContextMenu
@@ -2737,6 +2762,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   sidebarRowSelected: {
     backgroundColor: theme.colors.surfaceSidebarSelected,
+  },
+  workspaceRowAgentDropTarget: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+    borderRadius: theme.borderRadius.md,
   },
   workspaceRowContainer: {
     position: "relative",

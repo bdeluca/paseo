@@ -1,18 +1,14 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
 import equal from "fast-deep-equal";
 import { useStoreWithEqualityFn } from "zustand/traditional";
-import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/session-store";
-import { useHostFeature } from "@/runtime/host-features";
-import { useHostRuntimeClient } from "@/runtime/host-runtime";
-import { useToast } from "@/contexts/toast-context";
 import {
   buildMoveWorkspaceOptions,
   countCarriedSubagents,
   type CarriedSubagentInput,
   type MoveWorkspaceCandidate,
 } from "./model";
+import { useAgentWorkspaceMove } from "./use-agent-workspace-move";
 import { MoveToWorkspaceSheet } from "./move-to-workspace-sheet";
 
 export interface MoveToWorkspaceController {
@@ -25,11 +21,6 @@ interface MoveTarget {
   agentId: string;
   label: string;
   workspaceId: string | undefined;
-}
-
-interface MoveSelection {
-  agentId: string;
-  workspaceId: string;
 }
 
 function selectWorkspaceCandidates(
@@ -70,11 +61,7 @@ type SessionState = ReturnType<typeof useSessionStore.getState>;
  * sheet from this hook, so the picker and the move cannot drift apart.
  */
 export function useMoveToWorkspace(serverId: string | null): MoveToWorkspaceController {
-  const { t } = useTranslation();
-  const toast = useToast();
   const normalizedServerId = serverId?.trim() || null;
-  const client = useHostRuntimeClient(normalizedServerId ?? "");
-  const supported = useHostFeature(normalizedServerId, "agentWorkspaceMove");
   const [target, setTarget] = useState<MoveTarget | null>(null);
 
   const workspaceCandidates = useStoreWithEqualityFn(
@@ -88,24 +75,11 @@ export function useMoveToWorkspace(serverId: string | null): MoveToWorkspaceCont
     equal,
   );
 
-  const mutation = useMutation({
-    mutationFn: async ({ agentId, workspaceId }: MoveSelection) => {
-      if (!client) {
-        throw new Error(t("agents.moveToWorkspace.disconnected"));
-      }
-      return await client.moveAgentToWorkspace(agentId, workspaceId);
-    },
-    onSuccess: (_result, variables) => {
-      const workspaceLabel =
-        workspaceCandidates.find((workspace) => workspace.id === variables.workspaceId)?.title ||
-        workspaceCandidates.find((workspace) => workspace.id === variables.workspaceId)?.name ||
-        variables.workspaceId;
-      toast.show(t("agents.moveToWorkspace.moved", { workspace: workspaceLabel }));
-      setTarget(null);
-    },
-  });
-
-  const { mutate, reset } = mutation;
+  const closeOnMoved = useCallback(() => setTarget(null), []);
+  const { move, pendingWorkspaceId, errorMessage, reset } = useAgentWorkspaceMove(
+    normalizedServerId,
+    { onMoved: closeOnMoved },
+  );
 
   const open = useCallback(
     (agentId: string) => {
@@ -130,9 +104,9 @@ export function useMoveToWorkspace(serverId: string | null): MoveToWorkspaceCont
   const handleSelect = useCallback(
     (workspaceId: string) => {
       if (!target) return;
-      mutate({ agentId: target.agentId, workspaceId });
+      move?.(target.agentId, workspaceId);
     },
-    [mutate, target],
+    [move, target],
   );
 
   const options = useMemo(
@@ -162,12 +136,12 @@ export function useMoveToWorkspace(serverId: string | null): MoveToWorkspaceCont
       agentLabel={target.label}
       options={options}
       carriedSubagentCount={carriedSubagentCount}
-      pendingWorkspaceId={mutation.isPending ? mutation.variables.workspaceId : null}
-      error={mutation.error ? mutation.error.message : null}
+      pendingWorkspaceId={pendingWorkspaceId}
+      error={errorMessage}
       onSelect={handleSelect}
       onClose={close}
     />
   ) : null;
 
-  return { open: supported ? open : undefined, sheet };
+  return { open: move ? open : undefined, sheet };
 }
