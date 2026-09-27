@@ -3,6 +3,7 @@ import type { Logger } from "pino";
 import {
   AgentRunCancellationError,
   type AgentRunCancellationResult,
+  type AgentWorkspaceMoveResult,
   type ManagedAgent,
 } from "./agent-manager.js";
 import type { StoredAgentRecord } from "./agent-storage.js";
@@ -24,6 +25,7 @@ export interface LifecycleAgentManager {
     live: boolean;
     previousParentAgentId: string | null;
   }>;
+  moveAgentToWorkspace(agentId: string, workspaceId: string): Promise<AgentWorkspaceMoveResult>;
   notifyAgentState(agentId: string): void;
   setAgentMode(agentId: string, modeId: string): Promise<AgentProviderNotice | null>;
   updateAgentMetadata(
@@ -200,6 +202,40 @@ export async function detachAgentCommand(
   return {
     agentId,
     ...result,
+  };
+}
+
+export interface MoveAgentToWorkspaceResult {
+  agentId: string;
+  workspaceId: string;
+  previousWorkspaceId: string | null;
+  /** The agent plus every same-workspace descendant carried with it. */
+  movedAgentIds: string[];
+  affectedWorkspaceIds: string[];
+}
+
+export async function moveAgentToWorkspaceCommand(
+  dependencies: Pick<AgentLifecycleCommandDependencies, "agentManager">,
+  input: { agentId: string; workspaceId: string },
+): Promise<MoveAgentToWorkspaceResult> {
+  const result = await dependencies.agentManager.moveAgentToWorkspace(
+    input.agentId,
+    input.workspaceId,
+  );
+  // Workspace status is an aggregate over the agents each workspace owns, so both
+  // ends of the move have to be recomputed. The carried descendants all came from
+  // the source workspace, so the move vacates that one and no other.
+  const affectedWorkspaceIds = new Set<string>([input.workspaceId]);
+  if (result.previousWorkspaceId) {
+    affectedWorkspaceIds.add(result.previousWorkspaceId);
+  }
+
+  return {
+    agentId: input.agentId,
+    workspaceId: input.workspaceId,
+    previousWorkspaceId: result.previousWorkspaceId ?? null,
+    movedAgentIds: result.records.map((record) => record.id),
+    affectedWorkspaceIds: Array.from(affectedWorkspaceIds),
   };
 }
 

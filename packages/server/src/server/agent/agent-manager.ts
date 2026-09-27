@@ -366,6 +366,12 @@ export interface WaitForAgentStartOptions {
   signal?: AbortSignal;
 }
 
+export interface AgentWorkspaceMoveResult {
+  /** The moved agent's record first, then every descendant carried with it. */
+  records: StoredAgentRecord[];
+  previousWorkspaceId: string | undefined;
+}
+
 export type AttentionState =
   | { requiresAttention: false }
   | {
@@ -695,15 +701,30 @@ function getFirstUserMessageTextFromRows(rows: readonly AgentTimelineRow[]): str
   return null;
 }
 
+/**
+ * A child placed in another workspace stands apart from its parent: parent archive
+ * detaches it instead of cascading, workspace status counts it on its own, and a
+ * workspace move leaves it where it was put. An unstamped record on either side
+ * cannot establish the distinction.
+ */
+function isCrossWorkspaceChild(
+  parentWorkspaceId: string | undefined,
+  childWorkspaceId: string | undefined,
+): boolean {
+  return (
+    parentWorkspaceId !== undefined &&
+    childWorkspaceId !== undefined &&
+    parentWorkspaceId !== childWorkspaceId
+  );
+}
+
 function shouldDetachFromArchivedParent(
   parent: StoredAgentRecord,
   child: StoredAgentRecord,
 ): boolean {
-  const isCrossWorkspace =
-    parent.workspaceId !== undefined &&
-    child.workspaceId !== undefined &&
-    parent.workspaceId !== child.workspaceId;
-  return isCrossWorkspace || hasOpenAgentTab(child.labels);
+  return (
+    isCrossWorkspaceChild(parent.workspaceId, child.workspaceId) || hasOpenAgentTab(child.labels)
+  );
 }
 
 function detachedAgentLabelPatch(labels: Record<string, string>): AgentLabelPatch {
@@ -2102,6 +2123,125 @@ export class AgentManager {
       throw new Error(`Agent not found in storage after detach: ${agentId}`);
     }
     return { record: result.record, live: false, previousParentAgentId };
+  }
+
+  async moveAgentToWorkspace(
+    agentId: string,
+    workspaceId: string,
+  ): Promise<AgentWorkspaceMoveResult> {
+    return this.runLifecycleMutation(agentId, () =>
+      this.moveAgentToWorkspaceUnlocked(agentId, workspaceId),
+    );
+  }
+
+  private async moveAgentToWorkspaceUnlocked(
+    agentId: string,
+    workspaceId: string,
+  ): Promise<AgentWorkspaceMoveResult> {
+    const registry = this.requireRegistry();
+    const record = await registry.get(agentId);
+    if (!record) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+
+    const previousWorkspaceId = record.workspaceId;
+    if (previousWorkspaceId === workspaceId) {
+      return { records: [record], previousWorkspaceId };
+    }
+
+    const moved = await this.applyWorkspaceOwnership(agentId, workspaceId);
+    const carried = await this.cascadeMoveChildren({
+      parentAgentId: agentId,
+      sourceWorkspaceId: previousWorkspaceId,
+      workspaceId,
+      visited: new Set([agentId]),
+    });
+    return { records: [moved, ...carried], previousWorkspaceId };
+  }
+
+  // The subagents track follows its parent, so a move carries the descendants that
+  // shared the moved agent's workspace. A descendant already somewhere else was put
+  // there deliberately and stays — the distinction parent archive makes for detaching.
+  // Every descendant is judged against the one source workspace, so the move vacates
+  // that workspace and no other. `visited` terminates the walk if a parent label ever
+  // forms a cycle; nothing else stops one, because a move leaves no mark on the record
+  // the way archive does.
+  private async cascadeMoveChildren(input: {
+    parentAgentId: string;
+    sourceWorkspaceId: string | undefined;
+    workspaceId: string;
+    visited: Set<string>;
+  }): Promise<StoredAgentRecord[]> {
+    const registry = this.requireRegistry();
+    const records = await registry.list();
+    const moved: StoredAgentRecord[] = [];
+
+    for (const record of records) {
+      if (record.labels?.[PARENT_AGENT_ID_LABEL] !== input.parentAgentId) {
+        continue;
+      }
+      if (input.visited.has(record.id)) {
+        continue;
+      }
+      if (isCrossWorkspaceChild(input.sourceWorkspaceId, record.workspaceId)) {
+        continue;
+      }
+      input.visited.add(record.id);
+
+      const carried = await this.runLifecycleMutation(record.id, async () => {
+        const current = await registry.get(record.id);
+        if (!current || current.labels?.[PARENT_AGENT_ID_LABEL] !== input.parentAgentId) {
+          return [];
+        }
+        const child = await this.applyWorkspaceOwnership(record.id, input.workspaceId);
+        const descendants = await this.cascadeMoveChildren({
+          parentAgentId: record.id,
+          sourceWorkspaceId: input.sourceWorkspaceId,
+          workspaceId: input.workspaceId,
+          visited: input.visited,
+        });
+        return [child, ...descendants];
+      });
+      moved.push(...carried);
+    }
+
+    return moved;
+  }
+
+  private async applyWorkspaceOwnership(
+    agentId: string,
+    workspaceId: string,
+  ): Promise<StoredAgentRecord> {
+    const registry = this.requireRegistry();
+    const liveAgent = this.agents.get(agentId);
+    if (liveAgent) {
+      // The stored record is projected from the live agent, so ownership has to be
+      // written there as well or the next snapshot flush restores the old workspace.
+      liveAgent.workspaceId = workspaceId;
+      this.touchUpdatedAt(liveAgent);
+      await this.persistSnapshot(liveAgent);
+      this.emitState(liveAgent, { persist: false });
+      const record = await registry.get(agentId);
+      if (!record) {
+        throw new Error(`Agent not found in storage after move: ${agentId}`);
+      }
+      return record;
+    }
+
+    const record = await registry.get(agentId);
+    if (!record) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+    const nextRecord = {
+      ...record,
+      workspaceId,
+      updatedAt: this.nextStoredUpdatedAt(record),
+    };
+    await registry.upsert(nextRecord);
+    if (!nextRecord.internal) {
+      this.dispatchStoredAgentState(nextRecord);
+    }
+    return nextRecord;
   }
 
   notifyAgentState(agentId: string): void {

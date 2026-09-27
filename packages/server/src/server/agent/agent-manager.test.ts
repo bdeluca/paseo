@@ -5245,6 +5245,98 @@ test("archiveAgent does not cascade to a detached former child", async () => {
   expect((await storage.get(child.id))?.archivedAt).toBeFalsy();
 });
 
+test("moveAgentToWorkspace carries the same-workspace subagent tree and leaves a cross-workspace child", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-move-tree-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    logger,
+  });
+
+  const parent = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Parent" },
+    undefined,
+    { workspaceId: "ws-source" },
+  );
+  const child = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Child" },
+    undefined,
+    { labels: { [PARENT_AGENT_ID_LABEL]: parent.id }, workspaceId: "ws-source" },
+  );
+  const grandchild = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Grandchild" },
+    undefined,
+    { labels: { [PARENT_AGENT_ID_LABEL]: child.id }, workspaceId: "ws-source" },
+  );
+  const elsewhere = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Elsewhere" },
+    undefined,
+    { labels: { [PARENT_AGENT_ID_LABEL]: parent.id }, workspaceId: "ws-elsewhere" },
+  );
+
+  const result = await manager.moveAgentToWorkspace(parent.id, "ws-target");
+  await manager.flush();
+
+  expect(result.previousWorkspaceId).toBe("ws-source");
+  expect(result.records.map((record) => record.id)).toEqual([parent.id, child.id, grandchild.id]);
+  expect((await storage.get(parent.id))?.workspaceId).toBe("ws-target");
+  expect((await storage.get(child.id))?.workspaceId).toBe("ws-target");
+  expect((await storage.get(grandchild.id))?.workspaceId).toBe("ws-target");
+  expect((await storage.get(elsewhere.id))?.workspaceId).toBe("ws-elsewhere");
+  expect(manager.getAgent(child.id)?.workspaceId).toBe("ws-target");
+});
+
+test("moveAgentToWorkspace survives the next snapshot flush of a live agent", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-move-live-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    logger,
+  });
+
+  const agent = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Live" },
+    undefined,
+    { workspaceId: "ws-source" },
+  );
+
+  await manager.moveAgentToWorkspace(agent.id, "ws-target");
+  await manager.runAgent(agent.id, "say hello");
+  await manager.flush();
+
+  expect((await storage.get(agent.id))?.workspaceId).toBe("ws-target");
+  expect(manager.getAgent(agent.id)?.workspaceId).toBe("ws-target");
+});
+
+test("moveAgentToWorkspace reports the workspace it already owns without rewriting the tree", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-move-noop-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    logger,
+  });
+
+  const agent = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Settled" },
+    undefined,
+    { workspaceId: "ws-source" },
+  );
+  const child = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: "Child" },
+    undefined,
+    { labels: { [PARENT_AGENT_ID_LABEL]: agent.id }, workspaceId: "ws-elsewhere" },
+  );
+
+  const result = await manager.moveAgentToWorkspace(agent.id, "ws-source");
+
+  expect(result.previousWorkspaceId).toBe("ws-source");
+  expect(result.records.map((record) => record.id)).toEqual([agent.id]);
+  expect((await storage.get(child.id))?.workspaceId).toBe("ws-elsewhere");
+});
+
 test("runAgent persists finished attention and idle status without an external snapshot subscriber", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-finished-attention-"));
   const storagePath = join(workdir, "agents");
