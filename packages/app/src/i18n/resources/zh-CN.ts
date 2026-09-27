@@ -1185,6 +1185,33 @@ export const zhCN: TranslationResources = {
         description: "添加 project 以开始",
       },
     },
+    projectGroup: {
+      ungrouped: "未分组",
+      label: "项目分组",
+      namePlaceholder: "项目分组名称",
+      actions: {
+        menu: "项目分组操作",
+        create: "新建项目分组",
+        rename: "重命名",
+        moveUp: "上移",
+        moveDown: "下移",
+        delete: "删除项目分组",
+      },
+      new: {
+        title: "新建项目分组",
+        submit: "创建",
+      },
+      rename: {
+        title: "重命名项目分组",
+        submit: "重命名",
+      },
+      confirmations: {
+        deleteTitle: "删除该项目分组？",
+        deleteMessage: '"{{groupName}}" 中的项目将移到未分组。',
+        deleteConfirm: "删除",
+        cancel: "取消",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "服务 {{name}} 运行中",

@@ -1231,6 +1231,33 @@ export const fr: TranslationResources = {
         description: "Ajoutez un projet pour commencer",
       },
     },
+    projectGroup: {
+      ungrouped: "Sans groupe",
+      label: "Groupe de projets",
+      namePlaceholder: "Nom du groupe de projets",
+      actions: {
+        menu: "Actions du groupe de projets",
+        create: "Nouveau groupe de projets",
+        rename: "Renommer",
+        moveUp: "Déplacer vers le haut",
+        moveDown: "Déplacer vers le bas",
+        delete: "Supprimer le groupe de projets",
+      },
+      new: {
+        title: "Nouveau groupe de projets",
+        submit: "Créer",
+      },
+      rename: {
+        title: "Renommer le groupe de projets",
+        submit: "Renommer",
+      },
+      confirmations: {
+        deleteTitle: "Supprimer le groupe de projets ?",
+        deleteMessage: 'Les projets de "{{groupName}}" passeront dans Sans groupe.',
+        deleteConfirm: "Supprimer",
+        cancel: "Annuler",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Service {{name}} en cours",

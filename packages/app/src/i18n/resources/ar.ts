@@ -1195,6 +1195,33 @@ export const ar: TranslationResources = {
         description: "أضف مشروعًا للبدء",
       },
     },
+    projectGroup: {
+      ungrouped: "غير مجمّع",
+      label: "مجموعة المشاريع",
+      namePlaceholder: "اسم مجموعة المشاريع",
+      actions: {
+        menu: "إجراءات مجموعة المشاريع",
+        create: "مجموعة مشاريع جديدة",
+        rename: "إعادة تسمية",
+        moveUp: "تحريك لأعلى",
+        moveDown: "تحريك لأسفل",
+        delete: "حذف مجموعة المشاريع",
+      },
+      new: {
+        title: "مجموعة مشاريع جديدة",
+        submit: "إنشاء",
+      },
+      rename: {
+        title: "إعادة تسمية مجموعة المشاريع",
+        submit: "إعادة تسمية",
+      },
+      confirmations: {
+        deleteTitle: "هل تريد حذف مجموعة المشاريع؟",
+        deleteMessage: 'ستنتقل المشاريع في "{{groupName}}" إلى غير مجمّع.',
+        deleteConfirm: "حذف",
+        cancel: "إلغاء",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "الخدمة {{name}} قيد التشغيل",

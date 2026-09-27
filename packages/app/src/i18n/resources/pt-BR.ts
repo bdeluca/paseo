@@ -1221,6 +1221,33 @@ export const ptBR: TranslationResources = {
         description: "Adicione um projeto para começar",
       },
     },
+    projectGroup: {
+      ungrouped: "Sem grupo",
+      label: "Grupo de projetos",
+      namePlaceholder: "Nome do grupo de projetos",
+      actions: {
+        menu: "Ações do grupo de projetos",
+        create: "Novo grupo de projetos",
+        rename: "Renomear",
+        moveUp: "Mover para cima",
+        moveDown: "Mover para baixo",
+        delete: "Excluir grupo de projetos",
+      },
+      new: {
+        title: "Novo grupo de projetos",
+        submit: "Criar",
+      },
+      rename: {
+        title: "Renomear grupo de projetos",
+        submit: "Renomear",
+      },
+      confirmations: {
+        deleteTitle: "Excluir o grupo de projetos?",
+        deleteMessage: 'Os projetos em "{{groupName}}" vão para Sem grupo.',
+        deleteConfirm: "Excluir",
+        cancel: "Cancelar",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Serviço {{name}} em execução",

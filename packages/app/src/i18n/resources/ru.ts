@@ -1213,6 +1213,33 @@ export const ru: TranslationResources = {
         description: "Добавьте проект, чтобы начать работу",
       },
     },
+    projectGroup: {
+      ungrouped: "Без группы",
+      label: "Группа проектов",
+      namePlaceholder: "Название группы проектов",
+      actions: {
+        menu: "Действия группы проектов",
+        create: "Новая группа проектов",
+        rename: "Переименовать",
+        moveUp: "Переместить вверх",
+        moveDown: "Переместить вниз",
+        delete: "Удалить группу проектов",
+      },
+      new: {
+        title: "Новая группа проектов",
+        submit: "Создать",
+      },
+      rename: {
+        title: "Переименовать группу проектов",
+        submit: "Переименовать",
+      },
+      confirmations: {
+        deleteTitle: "Удалить группу проектов?",
+        deleteMessage: "Проекты из «{{groupName}}» перейдут в «Без группы».",
+        deleteConfirm: "Удалить",
+        cancel: "Отмена",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "Сервис {{name}} запущен",

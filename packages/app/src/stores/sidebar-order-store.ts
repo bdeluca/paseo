@@ -3,32 +3,63 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { z } from "zod";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
+import {
+  moveProjectToGroup,
+  normalizeProjectGroups,
+  removeProjectGroup,
+  renameProjectGroup,
+  reorderGroupProjectViewKeys,
+  shiftProjectGroup,
+  type SidebarProjectGroup,
+} from "./sidebar-project-groups";
+
+export type { SidebarProjectGroup } from "./sidebar-project-groups";
 
 interface SidebarOrderStoreState {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
+  projectGroups: SidebarProjectGroup[];
   getProjectOrder: () => string[];
   setProjectOrder: (keys: string[]) => void;
   getPinnedWorkspaceOrder: () => string[];
   setPinnedWorkspaceOrder: (keys: string[]) => void;
   getWorkspaceOrder: (projectViewKey: string) => string[];
   setWorkspaceOrder: (projectViewKey: string, keys: string[]) => void;
+  createProjectGroup: (name: string) => string | null;
+  renameProjectGroup: (groupId: string, name: string) => void;
+  shiftProjectGroup: (groupId: string, direction: -1 | 1) => void;
+  setGroupProjectOrder: (groupId: string, projectViewKeys: string[]) => void;
+  deleteProjectGroup: (groupId: string) => void;
+  moveProjectToGroup: (projectViewKey: string, groupId: string | null) => void;
 }
 
 interface SidebarOrderPersistedState {
   projectOrder?: string[];
   pinnedWorkspaceOrder?: string[];
   workspaceOrderByProject?: Record<string, string[]>;
+  projectGroups?: SidebarProjectGroup[];
+  projectCategories?: SidebarProjectGroup[];
   projectOrderByServerId?: Record<string, string[]>;
   workspaceOrderByServerAndProject?: Record<string, string[]>;
 }
 
 const StringArrayRecordSchema = z.record(z.string(), z.array(z.string()));
+const SidebarProjectGroupSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  projectViewKeys: z.array(z.string()),
+});
 const SidebarOrderPersistedStateSchema = z.strictObject({
   projectOrder: z.array(z.string()).optional(),
   pinnedWorkspaceOrder: z.array(z.string()).optional(),
   workspaceOrderByProject: StringArrayRecordSchema.optional(),
+  // Optional, because a settings blob written before project groups existed has no such key and
+  // must still restore the orders it does carry.
+  projectGroups: z.array(SidebarProjectGroupSchema).optional(),
+  // COMPAT(projectGroups): the same list shipped as `projectCategories` in v0.8.1 before the
+  // feature took the user's own word. Read by the v2 migration below; remove after 2027-03-13.
+  projectCategories: z.array(SidebarProjectGroupSchema).optional(),
   projectOrderByServerId: StringArrayRecordSchema.optional(),
   workspaceOrderByServerAndProject: StringArrayRecordSchema.optional(),
 });
@@ -110,10 +141,16 @@ export function migrateSidebarOrderState(persistedState: unknown): {
   projectOrder: string[];
   pinnedWorkspaceOrder: string[];
   workspaceOrderByProject: Record<string, string[]>;
+  projectGroups: SidebarProjectGroup[];
 } {
   const result = SidebarOrderPersistedStateSchema.safeParse(persistedState);
   if (!result.success) {
-    return { projectOrder: [], pinnedWorkspaceOrder: [], workspaceOrderByProject: {} };
+    return {
+      projectOrder: [],
+      pinnedWorkspaceOrder: [],
+      workspaceOrderByProject: {},
+      projectGroups: [],
+    };
   }
   const state: SidebarOrderPersistedState = result.data;
 
@@ -147,7 +184,16 @@ export function migrateSidebarOrderState(persistedState: unknown): {
     projectOrder,
     pinnedWorkspaceOrder: normalizeKeys(state.pinnedWorkspaceOrder ?? []),
     workspaceOrderByProject,
+    projectGroups: normalizeProjectGroups(state.projectGroups ?? state.projectCategories ?? []),
   };
+}
+
+function createGroupId(): string {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `group_${randomId}`;
 }
 
 export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
@@ -156,6 +202,7 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
       projectOrder: [],
       pinnedWorkspaceOrder: [],
       workspaceOrderByProject: {},
+      projectGroups: [],
       getProjectOrder: () => get().projectOrder,
       setProjectOrder: (keys) => {
         set({ projectOrder: dedupeKeys(keys) });
@@ -177,6 +224,62 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
           },
         }));
       },
+      // Returns the new id so the caller that created a group can move a project into it in
+      // the same gesture, which is how "New group" on a project row works.
+      createProjectGroup: (name) => {
+        const groupName = name.trim();
+        if (!groupName) return null;
+        const group: SidebarProjectGroup = {
+          id: createGroupId(),
+          name: groupName,
+          projectViewKeys: [],
+        };
+        set((state) => ({
+          projectGroups: normalizeProjectGroups([...state.projectGroups, group]),
+        }));
+        return group.id;
+      },
+      renameProjectGroup: (groupId, name) => {
+        const groupName = name.trim();
+        if (!groupName || !groupId.trim()) return;
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(
+            renameProjectGroup(state.projectGroups, groupId, groupName),
+          ),
+        }));
+      },
+      shiftProjectGroup: (groupId, direction) => {
+        if (!groupId.trim()) return;
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(
+            shiftProjectGroup(state.projectGroups, groupId, direction),
+          ),
+        }));
+      },
+      setGroupProjectOrder: (groupId, projectViewKeys) => {
+        if (!groupId.trim()) return;
+        const orderedKeys = normalizeKeys(projectViewKeys);
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(
+            reorderGroupProjectViewKeys(state.projectGroups, groupId, orderedKeys),
+          ),
+        }));
+      },
+      deleteProjectGroup: (groupId) => {
+        if (!groupId.trim()) return;
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(removeProjectGroup(state.projectGroups, groupId)),
+        }));
+      },
+      moveProjectToGroup: (projectViewKey, groupId) => {
+        const scope = projectViewKey.trim();
+        if (!scope) return;
+        set((state) => ({
+          projectGroups: normalizeProjectGroups(
+            moveProjectToGroup(state.projectGroups, scope, groupId?.trim() || null),
+          ),
+        }));
+      },
     }),
     {
       name: "sidebar-project-workspace-order",
@@ -185,8 +288,11 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         projectOrder: state.projectOrder,
         pinnedWorkspaceOrder: state.pinnedWorkspaceOrder,
         workspaceOrderByProject: state.workspaceOrderByProject,
+        projectGroups: state.projectGroups,
       }),
-      version: 1,
+      // v2 is the rename from `projectCategories`. The persisted shape is otherwise unchanged, so
+      // the bump exists only to make zustand run the migration that carries the old key over.
+      version: 2,
       migrate: migrateSidebarOrderState,
     },
   ),

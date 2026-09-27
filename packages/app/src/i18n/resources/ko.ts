@@ -1202,6 +1202,33 @@ export const ko: TranslationResources = {
         description: "시작하려면 프로젝트를 추가하세요",
       },
     },
+    projectGroup: {
+      ungrouped: "그룹 없음",
+      label: "프로젝트 그룹",
+      namePlaceholder: "프로젝트 그룹 이름",
+      actions: {
+        menu: "프로젝트 그룹 작업",
+        create: "새 프로젝트 그룹",
+        rename: "이름 변경",
+        moveUp: "위로 이동",
+        moveDown: "아래로 이동",
+        delete: "프로젝트 그룹 삭제",
+      },
+      new: {
+        title: "새 프로젝트 그룹",
+        submit: "만들기",
+      },
+      rename: {
+        title: "프로젝트 그룹 이름 변경",
+        submit: "이름 변경",
+      },
+      confirmations: {
+        deleteTitle: "프로젝트 그룹을 삭제할까요?",
+        deleteMessage: '"{{groupName}}"의 프로젝트는 그룹 없음으로 이동합니다.',
+        deleteConfirm: "삭제",
+        cancel: "취소",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "서비스 {{name}} 실행 중",

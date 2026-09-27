@@ -1209,6 +1209,33 @@ export const ja: TranslationResources = {
         description: "始めるにはプロジェクトを追加してください",
       },
     },
+    projectGroup: {
+      ungrouped: "グループなし",
+      label: "プロジェクトグループ",
+      namePlaceholder: "プロジェクトグループ名",
+      actions: {
+        menu: "プロジェクトグループ操作",
+        create: "新しいプロジェクトグループ",
+        rename: "名前を変更",
+        moveUp: "上へ移動",
+        moveDown: "下へ移動",
+        delete: "プロジェクトグループを削除",
+      },
+      new: {
+        title: "新しいプロジェクトグループ",
+        submit: "作成",
+      },
+      rename: {
+        title: "プロジェクトグループ名を変更",
+        submit: "変更",
+      },
+      confirmations: {
+        deleteTitle: "プロジェクトグループを削除しますか？",
+        deleteMessage: '"{{groupName}}" のプロジェクトはグループなしに移動します。',
+        deleteConfirm: "削除",
+        cancel: "キャンセル",
+      },
+    },
     workspace: {
       status: {
         serviceRunning: "サービス {{name}} 実行中",
