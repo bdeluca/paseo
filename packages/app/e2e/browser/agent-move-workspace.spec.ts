@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Locator } from "@playwright/test";
 import { test, expect, type Page } from "../support/fixtures";
 import { gotoAppShell } from "../support/helpers/app";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
@@ -22,21 +23,26 @@ async function fetchAgentWorkspaceId(
  * does not start Chromium's HTML5 drag, which is the machinery a cross-surface drop rides on, so
  * the three events are dispatched with one DataTransfer the way the browser would.
  */
-async function dragTabOntoRow(page: Page, tabTestId: string, rowTestId: string) {
-  return await page.evaluate(
-    ({ tabTestId: tab, rowTestId: row }) => {
-      const source = document.querySelector(`[data-testid="${tab}"]`);
-      const target = document.querySelector(`[data-testid="${row}"]`);
-      if (!source || !target) throw new Error("drag source or drop target missing");
-      const dataTransfer = new DataTransfer();
-      source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
-      target.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer }));
-      target.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer }));
-      source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
-      return Array.from(dataTransfer.types);
-    },
-    { tabTestId, rowTestId },
-  );
+/**
+ * Carries a chat tab onto a sidebar workspace row with a real pointer.
+ *
+ * The drop is tracked on pointer events, not HTML5 drag: the tab strip is a dnd-kit sortable whose
+ * sensor calls preventDefault on pointerdown, so the browser never raises `dragstart` on a tab.
+ * Dispatching drag events by hand would exercise machinery the app does not use.
+ */
+async function dragTabOntoRow(page: Page, tab: Locator, row: Locator) {
+  const from = await tab.boundingBox();
+  const to = await row.boundingBox();
+  if (!from || !to) throw new Error("drag source or drop target missing");
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  // Past the drag threshold before travelling, or the press reads as a click on the tab.
+  for (let step = 1; step <= 6; step += 1) {
+    await page.mouse.move(from.x + from.width / 2 + step * 4, from.y + from.height / 2 + step * 3);
+  }
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 });
+  await page.mouse.up();
 }
 
 /**
@@ -135,13 +141,7 @@ test.describe("Move agent to another workspace", () => {
       await expect(row).toBeVisible({ timeout: 30_000 });
 
       // The chat is carried to the workspace it should belong to; no menu involved.
-      const carriedTypes = await dragTabOntoRow(
-        page,
-        `workspace-tab-agent_${session.agentId}`,
-        `sidebar-workspace-row-${getServerId()}:${target.workspaceId}`,
-      );
-      // The drag has to carry the agent payload, or a passing move below would prove nothing.
-      expect(carriedTypes).toContain("application/x-paseo-agent");
+      await dragTabOntoRow(page, tab, row);
 
       await expect
         .poll(() => fetchAgentWorkspaceId(session.client, session.agentId), { timeout: 30_000 })
