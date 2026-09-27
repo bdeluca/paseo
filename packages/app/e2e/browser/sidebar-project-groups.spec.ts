@@ -47,6 +47,13 @@ async function createGroupFromProject(page: Page, projectViewKey: string, name: 
   await renameModalSubmit(page, dialog).click();
 }
 
+async function createGroupFromHeaderButton(page: Page, name: string) {
+  await page.getByTestId("sidebar-new-project-group").click();
+  const dialog = "sidebar-project-group-new-modal";
+  await renameModalInput(page, dialog).fill(name);
+  await renameModalSubmit(page, dialog).click();
+}
+
 /** A named group's id, read off its heading; ids are uuids the client mints. */
 async function groupIdByName(page: Page, name: string): Promise<string> {
   const testId = await groupHeader(page, name).getAttribute("data-testid");
@@ -122,6 +129,46 @@ test.describe("Sidebar project groups", () => {
     } finally {
       await grouped.cleanup();
       await ungrouped.cleanup();
+    }
+  });
+
+  test("the header button makes an empty group that projects can then join", async ({ page }) => {
+    const project = await seedWorkspace({ repoPrefix: "project-groups-button-" });
+
+    try {
+      const projectViewKey = projectEquivalenceViewKey(project.projectKey);
+
+      await gotoAppShell(page);
+      await waitForSidebarHydration(page);
+      await expect(projectRow(page, projectViewKey)).toBeVisible({ timeout: 30_000 });
+
+      // The way in that does not start from a project: no group exists to right-click yet.
+      await createGroupFromHeaderButton(page, "Clients");
+
+      const header = groupHeader(page, "Clients");
+      await expect(header).toBeVisible({ timeout: 10_000 });
+      const groupId = await groupIdByName(page, "Clients");
+      // Empty: the project it did not name stays in Ungrouped.
+      await expect(
+        groupBlock(page, groupId).getByTestId(`sidebar-project-row-${projectViewKey}`),
+      ).toHaveCount(0);
+      await expect(
+        page
+          .getByTestId("sidebar-project-group-ungrouped")
+          .getByTestId(`sidebar-project-row-${projectViewKey}`),
+      ).toBeVisible();
+
+      await moveProjectToGroup(page, projectViewKey, groupId);
+      await expect(
+        groupBlock(page, groupId).getByTestId(`sidebar-project-row-${projectViewKey}`),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // An empty group is still a device-local preference, so it survives a reload.
+      await page.reload();
+      await waitForSidebarHydration(page);
+      await expect(groupHeader(page, "Clients")).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await project.cleanup();
     }
   });
 
