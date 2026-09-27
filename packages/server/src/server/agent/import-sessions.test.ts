@@ -822,7 +822,7 @@ test("importProviderSession restores an archived session as the same standalone 
   });
   expect(await harness.storage.get(harness.snapshot.id)).toMatchObject({
     id: harness.snapshot.id,
-    workspaceId: "ws-restored",
+    workspaceId: "ws-archived",
     labels: { existing: "label", source: "reimport" },
     archivedAt: null,
   });
@@ -831,6 +831,51 @@ test("importProviderSession restores an archived session as the same standalone 
   );
   expect(harness.resumeAttempts).toBe(1);
   expect(harness.freshImports).toEqual([]);
+});
+
+test("importProviderSession leaves a restored parent in the same workspace as its subagents", async () => {
+  const harness = await ProviderImportHarness.create({ sessionId: "thread-parent" });
+  await harness.seed(
+    makeStoredProviderSession({
+      id: harness.snapshot.id,
+      cwd: harness.snapshot.cwd,
+      sessionId: "thread-parent",
+      workspaceId: "ws-original",
+    }),
+  );
+  const subagent = makeStoredProviderSession({
+    id: "subagent-of-parent",
+    cwd: harness.snapshot.cwd,
+    sessionId: "thread-subagent",
+    workspaceId: "ws-original",
+    labels: { [PARENT_AGENT_ID_LABEL]: harness.snapshot.id },
+    archivedAt: null,
+  });
+  await harness.seed(subagent);
+
+  await harness.import({ providerHandleId: "thread-parent", cwd: harness.snapshot.cwd });
+
+  const parent = await harness.storage.get(harness.snapshot.id);
+  expect(parent?.workspaceId).toBe("ws-original");
+  expect((await harness.storage.get(subagent.id))?.workspaceId).toBe("ws-original");
+});
+
+test("importProviderSession gives an archived record with no workspace the resolved placement", async () => {
+  const harness = await ProviderImportHarness.create({ sessionId: "thread-ownerless" });
+  const archived = makeStoredProviderSession({
+    id: harness.snapshot.id,
+    cwd: harness.snapshot.cwd,
+    sessionId: "thread-ownerless",
+  });
+  delete archived.workspaceId;
+  await harness.seed(archived);
+
+  await harness.import({ providerHandleId: "thread-ownerless", cwd: harness.snapshot.cwd });
+
+  expect(await harness.storage.get(harness.snapshot.id)).toMatchObject({
+    workspaceId: "ws-restored",
+    archivedAt: null,
+  });
 });
 
 test("importProviderSession rejects an archived session from a different cwd before restoring", async () => {

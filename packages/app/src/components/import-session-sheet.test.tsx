@@ -282,11 +282,15 @@ function createRecentSessionsClient(
   return { fetchRecentProviderSessions, importAgent };
 }
 
-function createImportedAgentSnapshot(id: string): Awaited<ReturnType<DaemonClient["importAgent"]>> {
+function createImportedAgentSnapshot(
+  id: string,
+  workspaceId?: string,
+): Awaited<ReturnType<DaemonClient["importAgent"]>> {
   return {
     id,
     provider: "custom-provider",
     cwd: "/repo/paseo",
+    ...(workspaceId ? { workspaceId } : {}),
     model: null,
     createdAt: "2026-04-30T10:00:00.000Z",
     updatedAt: "2026-04-30T10:00:00.000Z",
@@ -601,7 +605,7 @@ describe("ImportSessionSheet", () => {
 
     await screen.findByText("Importing...");
     expect(events).toEqual(["fetch"]);
-    resolveImport(createImportedAgentSnapshot("agent-imported"));
+    resolveImport(createImportedAgentSnapshot("agent-imported", "ws-current"));
 
     await waitFor(() => {
       expect(importAgent).toHaveBeenCalledWith({
@@ -615,6 +619,46 @@ describe("ImportSessionSheet", () => {
     expect(onImportedAgent).toHaveBeenCalledWith("agent-imported");
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(fetchRecentProviderSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the user to the restored session's own workspace instead of opening a tab here", async () => {
+    const fetchRecentProviderSessions = vi.fn(async () => ({
+      requestId: "recent-provider-sessions",
+      entries: [
+        createProviderSessionEntry({
+          providerId: "claude",
+          providerLabel: "Claude Code",
+          cwd: "/repo/paseo-realpath",
+        }),
+      ],
+    }));
+    const importAgent = vi.fn(async () =>
+      createImportedAgentSnapshot("agent-restored", "ws-original"),
+    );
+    const onImportedAgent = vi.fn();
+    const onImported = vi.fn();
+
+    renderSheet(
+      { fetchRecentProviderSessions, importAgent } as Pick<
+        DaemonClient,
+        "fetchRecentProviderSessions" | "importAgent"
+      >,
+      {
+        onImportedAgent,
+        onImported,
+        workspaceId: "ws-current",
+        snapshot: { supportsSnapshot: true, entries: [createSnapshotEntry("claude")] },
+      },
+    );
+
+    fireEvent.click(await screen.findByTestId("import-session-session-claude-provider-thread-1"));
+
+    await waitFor(() => {
+      expect(onImported).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "agent-restored", workspaceId: "ws-original" }),
+      );
+    });
+    expect(onImportedAgent).not.toHaveBeenCalled();
   });
 
   it("shows an import error state without closing when selected session import fails", async () => {
